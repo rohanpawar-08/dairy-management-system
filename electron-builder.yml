@@ -1,0 +1,26 @@
+appId: com.dairymanagement.system
+productName: DairyManagementSystem
+directories:
+  output: dist-pack
+npmRebuild: false
+files:
+  - from: dist/dairy-management-system/browser
+    to: dist/dairy-management-system/browser
+  - from: dist-electron
+    to: dist-electron
+  - package.json
+  - node_modules/better-sqlite3/**/*
+asar: true
+asarUnpack:
+  - "**/*.node"
+  - "**/node_modules/better-sqlite3/**"
+win:
+  # NOTE (Stage 1): Executable resource editing and signing are intentionally disabled
+  # for the Stage 1 unpacked smoke package to avoid external winCodeSign dependencies.
+  # Stage 11 must restore normal resource editing, app icon/metadata, and production signing.
+  # Modifying or fabricating files in the global electron-builder cache is strictly prohibited.
+  signAndEditExecutable: false
+  target:
+    - target: dir
+      arch:
+        - x64

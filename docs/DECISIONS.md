@@ -23,6 +23,7 @@
 - **[ADR-015](#adr-015-asynchronous-hot-backups-checksums-and-pre-restore-safety-snapshots)**: Asynchronous Hot Backups, Checksums, and Pre-Restore Safety Snapshots
 - **[ADR-016](#adr-016-exclusion-of-cloud-backends-spring-boot-and-remote-auth)**: Exclusion of Cloud Backends, Spring Boot, and Remote Auth
 - **[ADR-017](#adr-017-node-built-in-cryptographic-credential-storage-and-memory-sessions)**: Node Built-in Cryptographic Credential Storage and Memory Sessions
+- **[ADR-018](#adr-018-n-api-prebuilt-native-sqlite-bindings-for-windows-electron-runtime)**: N-API Prebuilt Native SQLite Bindings for Windows Electron Runtime
 
 ---
 
@@ -166,3 +167,15 @@
 - **Context:** Passwords and PINs must be secured without exposing plaintext credentials or requiring heavy native compilation dependencies during early scaffolding.
 - **Decision:** Use Node.js built-in `crypto.scrypt` with a unique 32-byte salt for password and PIN hashing (`pin_hash`), verify credentials with `crypto.timingSafeEqual`, and maintain authenticated sessions in main-process memory.
 - **Rationale:** Provides strong cryptographic security using built-in Node.js facilities without additional native dependency risks.
+
+---
+
+### ADR-018: N-API Prebuilt Native SQLite Bindings & Unpacked Smoke Packaging
+- **Status:** Accepted
+- **Context:** Target Windows client machines and deployment developer workstations in offline or semi-connected rural environments may lack full Visual Studio C++ desktop build toolchains. Additionally, early stage packaging only requires an unpacked executable to verify IPC and native SQLite module execution rather than a signed, branded production installer.
+- **Decision:**
+  1. Utilize N-API Node-API prebuilt binary distribution for `better-sqlite3` (`win32-x64.node`) unpacked directly alongside Electron main process bundles (`asarUnpack: ["**/*.node", "**/better-sqlite3/**"]`) and configure `npmRebuild: false` in `electron-builder.yml`.
+  2. For the Stage 1 unpacked smoke test application, configure `win: { signAndEditExecutable: false }` in `electron-builder.yml` to prevent invoking external `winCodeSign` utilities on Windows.
+  3. Prohibit any manual patching or fabrication of files inside `electron-builder`'s global cache (`%LOCALAPPDATA%\electron-builder\Cache`).
+  4. Defer Windows icon embedding, resource editing, and production code-signing configuration to Stage 11.
+- **Rationale:** Node-API is ABI-stable across Node and Electron versions supporting N-API 9/10, eliminating local C++ compilation failures, reducing packaging time, and ensuring 100% reproducible execution across development, CI, and packaged Windows binaries without global cache tampering.

@@ -29,23 +29,24 @@ Each stage represents an **independently testable milestone**. Development proce
 
 ---
 
-### Stage 1: Project Scaffolding, Secure Shell & Native IPC Smoke Test
+### Stage 1: Project Scaffolding, Secure Shell & Native IPC Smoke Test *(COMPLETED)*
 - **Objective:** Scaffold Angular 22 standalone application, Electron desktop shell, secure preload bridge, and perform native module compilation and IPC smoke testing with `better-sqlite3` across dev, build, and packaged paths.
 - **Entry Requirements:** Stage 0 completed.
 - **Deliverables:**
-  - Angular 22 workspace with standalone component architecture and Angular Material 3.
-  - Electron main process and preload bridge configuration (`contextIsolation: true`, `nodeIntegration: false`, sandboxed).
-  - TypeScript interfaces for IPC bridge (`window.dairyApi`).
-  - Native module rebuild of `better-sqlite3` against target Electron runtime.
-  - Early packaged installer smoke test configuration.
+  - [x] Angular 22 workspace with standalone component architecture and Angular Material 3.
+  - [x] Electron main process and preload bridge configuration (`contextIsolation: true`, `nodeIntegration: false`, sandboxed).
+  - [x] TypeScript interfaces for IPC bridge (`window.dairyApi`).
+  - [x] Native prebuilt integration of `better-sqlite3` against target Electron runtime.
+  - [x] Automated IPC smoke test (`npm run test:ipc-smoke`) and early packaged installer smoke test (`npm run build:smoke-pack`).
 - **Verification Commands (Post-Scaffolding):**
-  - `npm run test:ipc-smoke` (Verifies bidirectional IPC ping-pong and in-memory native SQLite query).
-  - `npm run build:smoke-pack` (Verifies packaged executable launches and loads native SQLite module).
-- **Exit Criteria:** Clean Electron window launches; Angular renders; bidirectional IPC round-trip passes; `better-sqlite3` executes without ABI mismatch in dev and packaged runtimes.
+  - `npm run test` (All 10 unit tests pass across Angular and backend).
+  - `npm run test:ipc-smoke` (Verifies bidirectional IPC ping-pong and in-memory native SQLite query in Electron runtime).
+  - `npm run build:smoke-pack` (Verifies packaged executable launches and executes native SQLite module).
+- **Exit Criteria:** Clean Electron window launches; Angular renders; bidirectional IPC round-trip passes; `better-sqlite3` executes without ABI mismatch in dev and packaged runtimes (All criteria PASSED).
 
 ---
 
-### Stage 2: Database Layer, Incremental Migrations Engine & Basic Verified Backup
+### Stage 2: Database Layer, Incremental Migrations Engine & Basic Verified Backup *(NEXT ACTIVE STAGE)*
 - **Objective:** Implement SQLite database connection lifecycle (WAL mode, `PRAGMA synchronous = FULL`, foreign keys enabled), transactional incremental migration runner, initial foundation migration, and basic verified async backup utility.
 - **Entry Requirements:** Stage 1 verified.
 - **Deliverables:**

@@ -17,8 +17,33 @@ The system digitizes and automates daily morning and evening milk collection, dy
 | Milestone | Status | Notes |
 |---|---|---|
 | **Stage 0: Documentation & Project Governance** | **Completed** | PRD, System Design, Roadmap, Decisions, and Open Questions defined and reviewed. |
-| **Stage 1: Project Scaffolding & Shell** | **Pending** | Application code, package dependencies, and Electron sources have not been created yet. |
-| **Current Implementation State** | **Pre-Development** | No source code, npm packages, or database instances exist in this repository. |
+| **Stage 1: Project Scaffolding & Shell** | **Completed** | Angular 22 standalone app, TypeScript Electron shell, typed IPC preload bridge, and better-sqlite3 native smoke tests verified. |
+| **Stage 2: Database Layer & Migrations** | **Next** | Schema migrations, connection management, WAL mode, and foundation tables. |
+| **Current Implementation State** | **Stage 1 Verified** | All unit tests, IPC smoke tests, and packaged builds passing with exit code 0. |
+
+---
+
+## 💻 Stage 1 Development & Build Commands
+
+```bash
+# Install pinned dependencies
+npm install
+
+# Start Angular renderer and Electron in development mode
+npm run dev
+
+# Run all unit tests (Angular + Backend) non-interactively
+npm test
+
+# Build Angular production bundle and Electron main/preload
+npm run build
+
+# Run automated IPC & SQLite native smoke test in Electron runtime
+npm run test:ipc-smoke
+
+# Produce packaged unpacked build and verify in real packaged runtime
+npm run build:smoke-pack
+```
 
 ---
 
