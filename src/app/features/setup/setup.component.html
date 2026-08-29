@@ -1,0 +1,260 @@
+<div class="setup-container">
+  <div class="setup-header">
+    <div class="language-toggle">
+      <button mat-stroked-button color="primary" type="button" (click)="i18n.toggleLanguage()">
+        <mat-icon>translate</mat-icon>
+        {{ (i18n.isMarathi() ? 'common.english' : 'common.marathi') | translate }}
+      </button>
+    </div>
+    <h1 class="title">{{ 'setup.title' | translate }}</h1>
+    <p class="subtitle">{{ 'setup.subtitle' | translate }}</p>
+  </div>
+
+  <div class="wizard-stepper">
+    <div class="step-badge" [class.active]="currentStep() === 1" [class.completed]="currentStep() > 1">
+      <span class="step-num">१</span>
+      <span class="step-label">{{ 'setup.step_profile' | translate }}</span>
+    </div>
+    <div class="step-divider"></div>
+    <div class="step-badge" [class.active]="currentStep() === 2" [class.completed]="currentStep() > 2">
+      <span class="step-num">२</span>
+      <span class="step-label">{{ 'setup.step_credentials' | translate }}</span>
+    </div>
+    <div class="step-divider"></div>
+    <div class="step-badge" [class.active]="currentStep() === 3">
+      <span class="step-num">३</span>
+      <span class="step-label">{{ 'setup.step_confirm' | translate }}</span>
+    </div>
+  </div>
+
+  <mat-card class="setup-card">
+    @if (errorMessage()) {
+      <div class="error-banner">
+        <mat-icon>error_outline</mat-icon>
+        <span>{{ errorMessage() }}</span>
+      </div>
+    }
+
+    <!-- STEP 1: Dairy Profile Information -->
+    @if (currentStep() === 1) {
+      <form [formGroup]="profileForm" class="step-form">
+        <h2 class="step-heading">{{ 'setup.step_profile' | translate }}</h2>
+
+        <div class="form-grid">
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>{{ 'setup.centre_name' | translate }} *</mat-label>
+            <input matInput formControlName="centreName" [placeholder]="'setup.centre_name_placeholder' | translate" />
+            @if (profileForm.get('centreName')?.hasError('required') && profileForm.get('centreName')?.touched) {
+              <mat-error>{{ 'common.required' | translate }}</mat-error>
+            }
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>{{ 'setup.reg_code' | translate }}</mat-label>
+            <input matInput formControlName="registrationCode" placeholder="MH-PUN-01" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>{{ 'setup.owner_name' | translate }} *</mat-label>
+            <input matInput formControlName="ownerName" placeholder="नाव आणि आडनाव" />
+            @if (profileForm.get('ownerName')?.hasError('required') && profileForm.get('ownerName')?.touched) {
+              <mat-error>{{ 'common.required' | translate }}</mat-error>
+            }
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>{{ 'setup.phone_primary' | translate }} *</mat-label>
+            <input matInput formControlName="phonePrimary" placeholder="9876543210" maxlength="10" />
+            @if (profileForm.get('phonePrimary')?.invalid && profileForm.get('phonePrimary')?.touched) {
+              <mat-error>{{ 'setup.invalid_phone' | translate }}</mat-error>
+            }
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>{{ 'setup.phone_secondary' | translate }}</mat-label>
+            <input matInput formControlName="phoneSecondary" placeholder="ऐच्छिक मोबाईल" maxlength="10" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>{{ 'setup.address_line' | translate }}</mat-label>
+            <input matInput formControlName="addressLine" placeholder="पत्ता किंवा गाव" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>{{ 'setup.taluka' | translate }}</mat-label>
+            <input matInput formControlName="taluka" placeholder="तालुका" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>{{ 'setup.district' | translate }}</mat-label>
+            <input matInput formControlName="district" placeholder="जिल्हा" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>{{ 'setup.pincode' | translate }}</mat-label>
+            <input matInput formControlName="pincode" placeholder="411001" maxlength="6" />
+            @if (profileForm.get('pincode')?.invalid && profileForm.get('pincode')?.touched) {
+              <mat-error>{{ 'setup.invalid_pincode' | translate }}</mat-error>
+            }
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>{{ 'setup.default_language' | translate }} *</mat-label>
+            <mat-select formControlName="defaultLanguage" (selectionChange)="onLanguageChange($event.value)">
+              <mat-option value="mr">मराठी (Marathi)</mat-option>
+              <mat-option value="en">English</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>{{ 'setup.enabled_milk_types' | translate }} *</mat-label>
+            <mat-select formControlName="enabledMilkTypes">
+              <mat-option value="BOTH">{{ 'setup.milk_both' | translate }}</mat-option>
+              <mat-option value="COW">{{ 'setup.milk_cow' | translate }}</mat-option>
+              <mat-option value="BUFFALO">{{ 'setup.milk_buffalo' | translate }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>{{ 'setup.settlement_day' | translate }} *</mat-label>
+            <mat-select formControlName="settlementStartDay">
+              <mat-option value="MONDAY">{{ 'setup.day_monday' | translate }}</mat-option>
+              <mat-option value="TUESDAY">{{ 'setup.day_tuesday' | translate }}</mat-option>
+              <mat-option value="WEDNESDAY">{{ 'setup.day_wednesday' | translate }}</mat-option>
+              <mat-option value="THURSDAY">{{ 'setup.day_thursday' | translate }}</mat-option>
+              <mat-option value="FRIDAY">{{ 'setup.day_friday' | translate }}</mat-option>
+              <mat-option value="SATURDAY">{{ 'setup.day_saturday' | translate }}</mat-option>
+              <mat-option value="SUNDAY">{{ 'setup.day_sunday' | translate }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+        </div>
+
+        <div class="actions-row">
+          <div></div>
+          <button mat-flat-button color="primary" type="button" (click)="nextStep()">
+            {{ 'common.next' | translate }}
+            <mat-icon>arrow_forward</mat-icon>
+          </button>
+        </div>
+      </form>
+    }
+
+    <!-- STEP 2: Owner Credentials -->
+    @if (currentStep() === 2) {
+      <form [formGroup]="credentialsForm" class="step-form">
+        <h2 class="step-heading">{{ 'setup.step_credentials' | translate }}</h2>
+
+        <div class="form-grid">
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>{{ 'setup.username' | translate }} *</mat-label>
+            <input matInput formControlName="username" placeholder="owner" />
+            <mat-hint>{{ 'setup.username_hint' | translate }}</mat-hint>
+            @if (credentialsForm.get('username')?.invalid && credentialsForm.get('username')?.touched) {
+              <mat-error>{{ 'common.required' | translate }}</mat-error>
+            }
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>{{ 'setup.password' | translate }} *</mat-label>
+            <input matInput [type]="hidePassword() ? 'password' : 'text'" formControlName="password" />
+            <button mat-icon-button matSuffix type="button" (click)="hidePassword.set(!hidePassword())">
+              <mat-icon>{{ hidePassword() ? 'visibility_off' : 'visibility' }}</mat-icon>
+            </button>
+            <mat-hint>{{ 'setup.password_hint' | translate }}</mat-hint>
+            @if (credentialsForm.get('password')?.invalid && credentialsForm.get('password')?.touched) {
+              <mat-error>{{ 'setup.password_hint' | translate }}</mat-error>
+            }
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>{{ 'setup.confirm_password' | translate }} *</mat-label>
+            <input matInput [type]="hideConfirmPassword() ? 'password' : 'text'" formControlName="confirmPassword" />
+            <button mat-icon-button matSuffix type="button" (click)="hideConfirmPassword.set(!hideConfirmPassword())">
+              <mat-icon>{{ hideConfirmPassword() ? 'visibility_off' : 'visibility' }}</mat-icon>
+            </button>
+            @if (credentialsForm.hasError('passwordMismatch') && credentialsForm.get('confirmPassword')?.touched) {
+              <mat-error>{{ 'setup.passwords_mismatch' | translate }}</mat-error>
+            }
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>{{ 'setup.pin' | translate }}</mat-label>
+            <input matInput type="password" formControlName="pin" maxlength="6" placeholder="1234" />
+            <mat-hint>{{ 'setup.pin_hint' | translate }}</mat-hint>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>{{ 'setup.confirm_pin' | translate }}</mat-label>
+            <input matInput type="password" formControlName="confirmPin" maxlength="6" placeholder="1234" />
+            @if (credentialsForm.hasError('pinMismatch') && credentialsForm.get('confirmPin')?.touched) {
+              <mat-error>{{ 'setup.pins_mismatch' | translate }}</mat-error>
+            }
+          </mat-form-field>
+        </div>
+
+        <div class="actions-row">
+          <button mat-stroked-button type="button" (click)="prevStep()">
+            <mat-icon>arrow_back</mat-icon>
+            {{ 'common.back' | translate }}
+          </button>
+          <button mat-flat-button color="primary" type="button" (click)="nextStep()">
+            {{ 'common.next' | translate }}
+            <mat-icon>arrow_forward</mat-icon>
+          </button>
+        </div>
+      </form>
+    }
+
+    <!-- STEP 3: Verification & Submission -->
+    @if (currentStep() === 3) {
+      <div class="review-section">
+        <h2 class="step-heading">{{ 'setup.step_confirm' | translate }}</h2>
+
+        <div class="review-grid">
+          <div class="review-item">
+            <span class="label">{{ 'setup.centre_name' | translate }}:</span>
+            <span class="val highlight">{{ profileForm.value.centreName }}</span>
+          </div>
+          <div class="review-item">
+            <span class="label">{{ 'setup.owner_name' | translate }}:</span>
+            <span class="val">{{ profileForm.value.ownerName }}</span>
+          </div>
+          <div class="review-item">
+            <span class="label">{{ 'setup.phone_primary' | translate }}:</span>
+            <span class="val">{{ profileForm.value.phonePrimary }}</span>
+          </div>
+          <div class="review-item">
+            <span class="label">{{ 'setup.username' | translate }}:</span>
+            <span class="val">{{ credentialsForm.value.username }}</span>
+          </div>
+          <div class="review-item">
+            <span class="label">{{ 'setup.enabled_milk_types' | translate }}:</span>
+            <span class="val">{{ profileForm.value.enabledMilkTypes }}</span>
+          </div>
+          <div class="review-item">
+            <span class="label">{{ 'setup.settlement_day' | translate }}:</span>
+            <span class="val">{{ profileForm.value.settlementStartDay }}</span>
+          </div>
+        </div>
+
+        @if (isSubmitting()) {
+          <div class="submitting-box">
+            <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+            <p>{{ 'setup.submitting' | translate }}</p>
+          </div>
+        }
+
+        <div class="actions-row">
+          <button mat-stroked-button type="button" [disabled]="isSubmitting()" (click)="prevStep()">
+            <mat-icon>arrow_back</mat-icon>
+            {{ 'common.back' | translate }}
+          </button>
+          <button mat-flat-button color="primary" type="button" [disabled]="isSubmitting()" (click)="submitSetup()">
+            <mat-icon>check_circle</mat-icon>
+            {{ 'common.submit' | translate }}
+          </button>
+        </div>
+      </div>
+    }
+  </mat-card>
+</div>

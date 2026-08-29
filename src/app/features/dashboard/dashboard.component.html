@@ -1,0 +1,103 @@
+<div class="dashboard-layout">
+  <!-- Top App Navigation Header -->
+  <header class="app-header">
+    <div class="header-left">
+      <div class="dairy-logo">
+        <mat-icon>local_drink</mat-icon>
+      </div>
+      <div>
+        <h1 class="header-dairy-name">
+          {{ authState.dairyProfile()?.centreName || ('app.title' | translate) }}
+        </h1>
+        <span class="offline-tag">
+          <mat-icon>cloud_off</mat-icon>
+          {{ 'app.offline_badge' | translate }}
+        </span>
+      </div>
+    </div>
+
+    <div class="header-right">
+      <button mat-stroked-button class="lang-btn" (click)="i18n.toggleLanguage()">
+        <mat-icon>translate</mat-icon>
+        {{ (i18n.isMarathi() ? 'common.english' : 'common.marathi') | translate }}
+      </button>
+
+      <div class="user-chip">
+        <mat-icon>account_circle</mat-icon>
+        <div class="user-meta">
+          <span class="user-name">{{ authState.currentSession()?.fullName }}</span>
+          <span class="user-role">
+            {{
+              (authState.isOwner() ? 'common.role_owner' : 'common.role_operator') | translate
+            }}
+          </span>
+        </div>
+      </div>
+
+      <button mat-flat-button color="warn" class="logout-btn" (click)="onLogout()">
+        <mat-icon>logout</mat-icon>
+        {{ 'common.logout' | translate }}
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Dashboard Content -->
+  <main class="dashboard-body">
+    <div class="welcome-card">
+      <div class="welcome-header">
+        <mat-icon class="welcome-icon">verified_user</mat-icon>
+        <div>
+          <h2>{{ 'dashboard.welcome' | translate }}, {{ authState.currentSession()?.fullName }}!</h2>
+          <p>{{ 'dashboard.dairy_info' | translate }}</p>
+        </div>
+      </div>
+
+      @if (authState.dairyProfile(); as profile) {
+        <div class="profile-summary-grid">
+          <div class="info-tile">
+            <span class="lbl">{{ 'setup.centre_name' | translate }}</span>
+            <span class="val">{{ profile.centreName }}</span>
+          </div>
+          <div class="info-tile">
+            <span class="lbl">{{ 'setup.owner_name' | translate }}</span>
+            <span class="val">{{ profile.ownerName }}</span>
+          </div>
+          <div class="info-tile">
+            <span class="lbl">{{ 'setup.phone_primary' | translate }}</span>
+            <span class="val">{{ profile.phonePrimary }}</span>
+          </div>
+          <div class="info-tile">
+            <span class="lbl">{{ 'setup.settlement_day' | translate }}</span>
+            <span class="val">{{ profile.settlementStartDay }}</span>
+          </div>
+        </div>
+      }
+    </div>
+
+    <!-- Active Stage 4 Module: Farmers Directory -->
+    <div class="module-cards-grid">
+      <mat-card class="module-card clickable" (click)="navigateToFarmers()">
+        <div class="card-icon-box">
+          <mat-icon>groups</mat-icon>
+        </div>
+        <div class="card-content-box">
+          <h3>{{ 'farmers.title' | translate }}</h3>
+          <p>{{ 'farmers.module_description' | translate }}</p>
+          <button mat-flat-button color="primary" type="button">
+            <mat-icon>arrow_forward</mat-icon>
+            {{ 'farmers.open_directory' | translate }}
+          </button>
+        </div>
+      </mat-card>
+    </div>
+
+    <!-- Future Modules Notice Banner -->
+    <div class="future-modules-card">
+      <mat-icon>info</mat-icon>
+      <div>
+        <h3>{{ 'dashboard.active_stage_title' | translate }}</h3>
+        <p>{{ 'dashboard.stage4_note' | translate }}</p>
+      </div>
+    </div>
+  </main>
+</div>

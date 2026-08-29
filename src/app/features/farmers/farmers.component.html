@@ -1,0 +1,255 @@
+<div class="farmers-container">
+  <!-- Top Navigation / Header Bar -->
+  <header class="page-header">
+    <div class="header-left">
+      <button mat-icon-button (click)="navigateToDashboard()" [matTooltip]="'common.back' | translate">
+        <mat-icon>arrow_back</mat-icon>
+      </button>
+      <div>
+        <h1 class="page-title">{{ 'farmers.title' | translate }}</h1>
+        <p class="page-subtitle">{{ 'farmers.subtitle' | translate }}</p>
+      </div>
+    </div>
+
+    <div class="header-actions">
+      <button mat-stroked-button color="primary" (click)="i18n.toggleLanguage()" type="button">
+        <mat-icon>translate</mat-icon>
+        {{ (i18n.isMarathi() ? 'common.english' : 'common.marathi') | translate }}
+      </button>
+
+      @if (authState.isOwner()) {
+        <button mat-flat-button color="primary" (click)="openAddFarmerDialog()" type="button">
+          <mat-icon>person_add</mat-icon>
+          {{ 'farmers.add_farmer_button' | translate }}
+        </button>
+      }
+    </div>
+  </header>
+
+  <!-- Search and Filter Bar -->
+  <mat-card class="filter-card">
+    <div class="filter-row">
+      <mat-form-field appearance="outline" class="search-field">
+        <mat-label>{{ 'farmers.search_placeholder' | translate }}</mat-label>
+        <mat-icon matPrefix>search</mat-icon>
+        <input
+          matInput
+          [ngModel]="farmerState.searchQuery()"
+          (ngModelChange)="onSearchChange($event)"
+          [placeholder]="'farmers.search_placeholder' | translate"
+        />
+        @if (farmerState.searchQuery()) {
+          <button matSuffix mat-icon-button aria-label="Clear" (click)="onSearchChange('')">
+            <mat-icon>close</mat-icon>
+          </button>
+        }
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="filter-select">
+        <mat-label>{{ 'farmers.filter_status' | translate }}</mat-label>
+        <mat-select
+          [ngModel]="farmerState.statusFilter()"
+          (ngModelChange)="onStatusFilterChange($event)"
+        >
+          <mat-option value="ACTIVE">{{ 'farmers.status_active' | translate }}</mat-option>
+          <mat-option value="INACTIVE">{{ 'farmers.status_inactive' | translate }}</mat-option>
+          <mat-option value="ALL">{{ 'farmers.status_all' | translate }}</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="filter-select">
+        <mat-label>{{ 'farmers.filter_milk_type' | translate }}</mat-label>
+        <mat-select
+          [ngModel]="farmerState.milkTypeFilter()"
+          (ngModelChange)="onMilkTypeFilterChange($event)"
+        >
+          <mat-option value="ALL">{{ 'farmers.milk_all' | translate }}</mat-option>
+          <mat-option value="COW">{{ 'farmers.milk_cow' | translate }}</mat-option>
+          <mat-option value="BUFFALO">{{ 'farmers.milk_buffalo' | translate }}</mat-option>
+          <mat-option value="BOTH">{{ 'farmers.milk_both' | translate }}</mat-option>
+        </mat-select>
+      </mat-form-field>
+    </div>
+  </mat-card>
+
+  <!-- Loading State -->
+  @if (farmerState.isLoading()) {
+    <mat-progress-bar mode="indeterminate" class="table-loading-bar"></mat-progress-bar>
+  }
+
+  <!-- Error Banner -->
+  @if (farmerState.errorMessage()) {
+    <div class="error-banner">
+      <mat-icon>error_outline</mat-icon>
+      <span>{{ farmerState.errorMessage() }}</span>
+    </div>
+  }
+
+  <!-- Table View -->
+  <mat-card class="table-card">
+    @if (farmerState.farmers().length > 0) {
+      <table mat-table [dataSource]="farmerState.farmers()" class="farmers-table">
+        <!-- Member Code Column -->
+        <ng-container matColumnDef="memberCode">
+          <th mat-header-cell *matHeaderCellDef>{{ 'farmers.member_code' | translate }}</th>
+          <td mat-cell *matCellDef="let farmer" class="code-cell">
+            <span class="member-badge">{{ farmer.memberCode }}</span>
+          </td>
+        </ng-container>
+
+        <!-- Name Column -->
+        <ng-container matColumnDef="name">
+          <th mat-header-cell *matHeaderCellDef>{{ 'farmers.farmer_name' | translate }}</th>
+          <td mat-cell *matCellDef="let farmer">
+            <div class="name-box">
+              <span class="primary-name">{{ farmer.nameMr }}</span>
+              @if (farmer.nameEn) {
+                <span class="secondary-name">{{ farmer.nameEn }}</span>
+              }
+            </div>
+          </td>
+        </ng-container>
+
+        <!-- Phone Column -->
+        <ng-container matColumnDef="phone">
+          <th mat-header-cell *matHeaderCellDef>{{ 'farmers.phone' | translate }}</th>
+          <td mat-cell *matCellDef="let farmer">
+            {{ farmer.phone || '-' }}
+          </td>
+        </ng-container>
+
+        <!-- Village Column -->
+        <ng-container matColumnDef="village">
+          <th mat-header-cell *matHeaderCellDef>{{ 'farmers.village' | translate }}</th>
+          <td mat-cell *matCellDef="let farmer">
+            {{ farmer.village || '-' }}
+          </td>
+        </ng-container>
+
+        <!-- Milk Type Column -->
+        <ng-container matColumnDef="milkType">
+          <th mat-header-cell *matHeaderCellDef>{{ 'farmers.milk_type' | translate }}</th>
+          <td mat-cell *matCellDef="let farmer">
+            <span
+              class="milk-badge"
+              [ngClass]="{
+                'cow': farmer.defaultMilkType === 'COW',
+                'buffalo': farmer.defaultMilkType === 'BUFFALO',
+                'both': farmer.defaultMilkType === 'BOTH'
+              }"
+            >
+              {{ ('farmers.milk_' + farmer.defaultMilkType.toLowerCase()) | translate }}
+            </span>
+          </td>
+        </ng-container>
+
+        <!-- Opening Balance Column -->
+        <ng-container matColumnDef="openingBalance">
+          <th mat-header-cell *matHeaderCellDef>{{ 'farmers.opening_balance' | translate }}</th>
+          <td mat-cell *matCellDef="let farmer">
+            <span
+              class="balance-badge"
+              [ngClass]="{
+                'payable': farmer.openingBalancePaise > 0,
+                'debt': farmer.openingBalancePaise < 0,
+                'zero': farmer.openingBalancePaise === 0
+              }"
+            >
+              {{ formatBalance(farmer.openingBalancePaise) }}
+            </span>
+          </td>
+        </ng-container>
+
+        <!-- Bank / UPI Column -->
+        <ng-container matColumnDef="bankDetails">
+          <th mat-header-cell *matHeaderCellDef>{{ 'farmers.bank_details' | translate }}</th>
+          <td mat-cell *matCellDef="let farmer" class="bank-cell">
+            @if (farmer.maskedBankAccount) {
+              <div class="bank-line">
+                <mat-icon class="tiny-icon">account_balance</mat-icon>
+                <span>{{ farmer.maskedBankAccount }}</span>
+                @if (farmer.bankIfsc) {
+                  <span class="ifsc-tag">{{ farmer.bankIfsc }}</span>
+                }
+              </div>
+            }
+            @if (farmer.maskedUpiId) {
+              <div class="upi-line">
+                <mat-icon class="tiny-icon">smartphone</mat-icon>
+                <span>{{ farmer.maskedUpiId }}</span>
+              </div>
+            }
+            @if (!farmer.maskedBankAccount && !farmer.maskedUpiId) {
+              <span class="no-data">-</span>
+            }
+          </td>
+        </ng-container>
+
+        <!-- Status Column -->
+        <ng-container matColumnDef="status">
+          <th mat-header-cell *matHeaderCellDef>{{ 'farmers.status' | translate }}</th>
+          <td mat-cell *matCellDef="let farmer">
+            <span class="status-badge" [ngClass]="{ 'active': farmer.isActive, 'inactive': !farmer.isActive }">
+              {{ (farmer.isActive ? 'farmers.status_active' : 'farmers.status_inactive') | translate }}
+            </span>
+          </td>
+        </ng-container>
+
+        <!-- Actions Column -->
+        <ng-container matColumnDef="actions">
+          <th mat-header-cell *matHeaderCellDef>{{ 'farmers.actions' | translate }}</th>
+          <td mat-cell *matCellDef="let farmer" class="actions-cell">
+            @if (authState.isOwner()) {
+              <button
+                mat-icon-button
+                color="primary"
+                (click)="openEditFarmerDialog(farmer)"
+                [matTooltip]="'common.save' | translate"
+              >
+                <mat-icon>edit</mat-icon>
+              </button>
+
+              @if (farmer.isActive) {
+                <button
+                  mat-icon-button
+                  color="warn"
+                  (click)="openDeactivateDialog(farmer)"
+                  [matTooltip]="'farmers.deactivate_button' | translate"
+                >
+                  <mat-icon>person_off</mat-icon>
+                </button>
+              } @else {
+                <button
+                  mat-icon-button
+                  color="accent"
+                  (click)="reactivateFarmer(farmer)"
+                  [matTooltip]="'farmers.reactivate_button' | translate"
+                >
+                  <mat-icon>person_check</mat-icon>
+                </button>
+              }
+            } @else {
+              <span class="read-only-text">{{ 'farmers.view_only' | translate }}</span>
+            }
+          </td>
+        </ng-container>
+
+        <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+        <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+      </table>
+    } @else if (!farmerState.isLoading()) {
+      <!-- Empty State -->
+      <div class="empty-state">
+        <mat-icon class="empty-icon">groups</mat-icon>
+        <h3>{{ 'farmers.no_farmers_found' | translate }}</h3>
+        <p>{{ 'farmers.no_farmers_hint' | translate }}</p>
+        @if (authState.isOwner()) {
+          <button mat-flat-button color="primary" (click)="openAddFarmerDialog()">
+            <mat-icon>person_add</mat-icon>
+            {{ 'farmers.add_farmer_button' | translate }}
+          </button>
+        }
+      </div>
+    }
+  </mat-card>
+</div>

@@ -5,6 +5,17 @@ import {
   PingResult,
   SqliteSmokeResult,
   AppVersionInfo,
+  SetupStatusResult,
+  CompleteSetupPayload,
+  DairyProfileSummary,
+  LoginPayload,
+  AuthSessionDto,
+  FarmerFilter,
+  FarmerListDto,
+  FarmerDetailDto,
+  CreateFarmerPayload,
+  UpdateFarmerPayload,
+  DeactivateFarmerPayload,
 } from '../../../../shared/ipc-contracts';
 
 @Injectable({
@@ -71,4 +82,217 @@ export class ElectronBridgeService {
     }
     return this.api.getAppVersion();
   }
+
+  /**
+   * Stage 3: Get first-run setup status.
+   */
+  public async getSetupStatus(): Promise<IpcResponse<SetupStatusResult>> {
+    if (!this.api) {
+      return {
+        success: true,
+        data: { state: 'UNINITIALIZED', dairyProfile: null },
+      };
+    }
+    return this.api.getSetupStatus();
+  }
+
+  /**
+   * Stage 3: Complete first-run dairy setup.
+   */
+  public async completeSetup(
+    payload: CompleteSetupPayload
+  ): Promise<IpcResponse<DairyProfileSummary>> {
+    if (!this.api) {
+      return {
+        success: false,
+        error: {
+          code: 'NO_ELECTRON_BRIDGE',
+          messageMr: 'Electron ब्रिज उपलब्ध नाही',
+          messageEn: 'Electron bridge is not available',
+        },
+      };
+    }
+    return this.api.completeSetup(payload);
+  }
+
+  /**
+   * Stage 3: Authenticate user.
+   */
+  public async login(payload: LoginPayload): Promise<IpcResponse<AuthSessionDto>> {
+    if (!this.api) {
+      return {
+        success: false,
+        error: {
+          code: 'NO_ELECTRON_BRIDGE',
+          messageMr: 'Electron ब्रिज उपलब्ध नाही',
+          messageEn: 'Electron bridge is not available',
+        },
+      };
+    }
+    return this.api.login(payload);
+  }
+
+  /**
+   * Stage 3: Log out active session.
+   */
+  public async logout(): Promise<IpcResponse<{ success: boolean }>> {
+    if (!this.api) {
+      return { success: true, data: { success: true } };
+    }
+    return this.api.logout();
+  }
+
+  /**
+   * Stage 3: Get current authenticated session.
+   */
+  public async getSession(): Promise<IpcResponse<AuthSessionDto | null>> {
+    if (!this.api) {
+      return { success: true, data: null };
+    }
+    return this.api.getSession();
+  }
+
+  /**
+   * Stage 3: Get dairy centre profile summary.
+   */
+  public async getProfile(): Promise<IpcResponse<DairyProfileSummary>> {
+    if (!this.api) {
+      return {
+        success: false,
+        error: {
+          code: 'NO_ELECTRON_BRIDGE',
+          messageMr: 'Electron ब्रिज उपलब्ध नाही',
+          messageEn: 'Electron bridge is not available',
+        },
+      };
+    }
+    return this.api.getProfile();
+  }
+
+  // ============================================================================
+  // Stage 4: Farmers Bridge Methods
+  // ============================================================================
+
+  public readonly farmers = {
+    list: async (filter?: FarmerFilter): Promise<IpcResponse<FarmerListDto[]>> => {
+      if (!this.api?.farmers) {
+        return {
+          success: false,
+          error: {
+            code: 'NO_ELECTRON_BRIDGE',
+            messageMr: 'Electron ब्रिज उपलब्ध नाही',
+            messageEn: 'Electron bridge is not available',
+          },
+        };
+      }
+      return this.api.farmers.list(filter);
+    },
+
+    getById: async (id: number): Promise<IpcResponse<FarmerListDto>> => {
+      if (!this.api?.farmers) {
+        return {
+          success: false,
+          error: {
+            code: 'NO_ELECTRON_BRIDGE',
+            messageMr: 'Electron ब्रिज उपलब्ध नाही',
+            messageEn: 'Electron bridge is not available',
+          },
+        };
+      }
+      return this.api.farmers.getById(id);
+    },
+
+    getByCode: async (
+      code: string,
+      activeOnly?: boolean
+    ): Promise<IpcResponse<FarmerListDto>> => {
+      if (!this.api?.farmers) {
+        return {
+          success: false,
+          error: {
+            code: 'NO_ELECTRON_BRIDGE',
+            messageMr: 'Electron ब्रिज उपलब्ध नाही',
+            messageEn: 'Electron bridge is not available',
+          },
+        };
+      }
+      return this.api.farmers.getByCode(code, activeOnly);
+    },
+
+    getEditDetail: async (id: number): Promise<IpcResponse<FarmerDetailDto>> => {
+      if (!this.api?.farmers) {
+        return {
+          success: false,
+          error: {
+            code: 'NO_ELECTRON_BRIDGE',
+            messageMr: 'Electron ब्रिज उपलब्ध नाही',
+            messageEn: 'Electron bridge is not available',
+          },
+        };
+      }
+      return this.api.farmers.getEditDetail(id);
+    },
+
+    create: async (payload: CreateFarmerPayload): Promise<IpcResponse<FarmerListDto>> => {
+      if (!this.api?.farmers) {
+        return {
+          success: false,
+          error: {
+            code: 'NO_ELECTRON_BRIDGE',
+            messageMr: 'Electron ब्रिज उपलब्ध नाही',
+            messageEn: 'Electron bridge is not available',
+          },
+        };
+      }
+      return this.api.farmers.create(payload);
+    },
+
+    update: async (
+      id: number,
+      payload: UpdateFarmerPayload
+    ): Promise<IpcResponse<FarmerListDto>> => {
+      if (!this.api?.farmers) {
+        return {
+          success: false,
+          error: {
+            code: 'NO_ELECTRON_BRIDGE',
+            messageMr: 'Electron ब्रिज उपलब्ध नाही',
+            messageEn: 'Electron bridge is not available',
+          },
+        };
+      }
+      return this.api.farmers.update(id, payload);
+    },
+
+    deactivate: async (
+      id: number,
+      payload?: DeactivateFarmerPayload
+    ): Promise<IpcResponse<FarmerListDto>> => {
+      if (!this.api?.farmers) {
+        return {
+          success: false,
+          error: {
+            code: 'NO_ELECTRON_BRIDGE',
+            messageMr: 'Electron ब्रिज उपलब्ध नाही',
+            messageEn: 'Electron bridge is not available',
+          },
+        };
+      }
+      return this.api.farmers.deactivate(id, payload);
+    },
+
+    reactivate: async (id: number): Promise<IpcResponse<FarmerListDto>> => {
+      if (!this.api?.farmers) {
+        return {
+          success: false,
+          error: {
+            code: 'NO_ELECTRON_BRIDGE',
+            messageMr: 'Electron ब्रिज उपलब्ध नाही',
+            messageEn: 'Electron bridge is not available',
+          },
+        };
+      }
+      return this.api.farmers.reactivate(id);
+    },
+  };
 }

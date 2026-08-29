@@ -46,54 +46,64 @@ Each stage represents an **independently testable milestone**. Development proce
 
 ---
 
-### Stage 2: Database Layer, Incremental Migrations Engine & Basic Verified Backup *(NEXT ACTIVE STAGE)*
+### Stage 2: Database Layer, Incremental Migrations Engine & Basic Verified Backup *(COMPLETED)*
 - **Objective:** Implement SQLite database connection lifecycle (WAL mode, `PRAGMA synchronous = FULL`, foreign keys enabled), transactional incremental migration runner, initial foundation migration, and basic verified async backup utility.
 - **Entry Requirements:** Stage 1 verified.
 - **Deliverables:**
-  - `electron/db/connection.ts` (`PRAGMA foreign_keys = ON;`, `PRAGMA journal_mode = WAL;`, `PRAGMA synchronous = FULL;`).
-  - `electron/db/migrator.ts` (Incremental migration runner with `schema_migrations` tracking).
-  - Migration `001_foundation.sql` creating: `schema_migrations`, `dairy_profile`, `users`, `audit_logs`, `app_settings`, `backup_history`.
-  - Basic async backup utility executing `better-sqlite3` backup / `VACUUM INTO`, running `PRAGMA integrity_check;`, and computing SHA-256 checksums.
-  - Automated database integration test suite.
+  - [x] `electron/db/connection.ts` (`PRAGMA foreign_keys = ON;`, `PRAGMA journal_mode = WAL;`, `PRAGMA synchronous = FULL;`, pragma verification).
+  - [x] `electron/db/migrator.ts` (Incremental migration runner with `schema_migrations` tracking and atomic transactions).
+  - [x] Migration `001_foundation.sql` creating: `schema_migrations`, `dairy_profile`, `users`, `audit_logs`, `app_settings`, `backup_history`, `idx_audit_created`.
+  - [x] Basic async backup utility executing `better-sqlite3` `db.backup()`, running `PRAGMA integrity_check;`, `PRAGMA foreign_key_check;`, streaming SHA-256 checksums, and `backup_history` logging.
+  - [x] Automated database and backup integration test suites (`test:db`, `test:backup-basic`).
 - **Verification Commands:**
-  - `npm run test:db` (Executes Migration 001, tests foreign keys, verifies WAL configuration).
-  - `npm run test:backup-basic` (Creates backup, verifies read-only integrity check and checksum generation).
-- **Exit Criteria:** Foundation tables initialize cleanly; migration runner tracks version; basic backup passes integrity check; integration tests pass.
+  - `npm run test:db` (All 9 tests pass: executes Migration 001, verifies WAL/FULL/FK pragmas, checks constraints, test DB isolation).
+  - `npm run test:backup-basic` (All 2 tests pass: creates live async backup, verifies read-only integrity, foreign keys, schema version, SHA-256, cleanup).
+  - `npm run test` (All 15 unit and integration tests pass).
+  - `npm run test:ipc-smoke` (Verifies IPC roundtrip and migration smoke execution in Electron runtime).
+  - `npm run build:smoke-pack` (Verifies packaged executable locates migrations and runs smoke test).
+- **Exit Criteria:** Foundation tables initialize cleanly; migration runner tracks version; basic backup passes integrity check; integration tests pass (All criteria PASSED).
 
 ---
 
-### Stage 3: Core Settings, Local Authentication & Base AuditService
+### Stage 3: Core Settings, Local Authentication & Base AuditService *(COMPLETED)*
 - **Objective:** Implement First-Run setup wizard, local user authentication (`scrypt` salt-and-hash and memory session authority), base `AuditService`, and offline bilingual i18n translation service.
 - **Entry Requirements:** Stage 2 verified.
 - **Deliverables:**
-  - First-Run setup wizard (`/setup`) for dairy profile initialization.
-  - Local authentication service with `crypto.scrypt` password and `pin_hash` verification, `timingSafeEqual`, and main-process session checks.
-  - Base `AuditService` in main process recording authentication events (login, logout, failed logins with local rate-limiting) to `audit_logs`.
-  - Offline JSON translation service (`assets/i18n/mr.json`, `assets/i18n/en.json`) with Marathi default.
-  - Singleton `dairy_profile` repository and IPC handlers.
+  - [x] First-Run setup wizard (`/setup`) for dairy profile initialization and atomic setup transaction.
+  - [x] Local authentication service with `crypto.scrypt` password and `pin_hash` verification, `timingSafeEqual`, and main-process session authority bound to `webContents.id`.
+  - [x] Base `AuditService` in main process recording authentication events (setup, login, logout, failed logins, and rate-limiting) to `audit_logs` with secret redaction.
+  - [x] Offline bilingual translation service (`public/assets/i18n/mr.json`, `public/assets/i18n/en.json`) with Marathi default and 100% key parity.
+  - [x] Singleton `dairy_profile` repository and IPC handlers (`setup:get-status`, `setup:complete`, `auth:login`, `auth:logout`, `auth:get-session`, `profile:get`).
 - **Verification Commands:**
-  - `npm run test:auth` (Verifies credential hashing, session states, and role access restrictions in main process).
-  - `npm run test:audit-base` (Verifies audit trail creation for auth events).
-- **Exit Criteria:** First-run wizard populates `dairy_profile`; Owner/Operator logins work; Marathi UI toggles instantly to English; session authority and audit logging active.
+  - `npm run test:auth` (All 16 tests pass: verifies credential hashing, salts, policies, timing-safe equality, setup atomic transactions, role access, and rate limiting).
+  - `npm run test:audit-base` (All 7 tests pass: verifies append-only audit trail creation, secret redaction, and session abort on audit write failure).
+  - `npm run test` (All 62 tests pass across 15 test files: 22 Angular specs + 40 backend integration/unit specs).
+  - `npm run build:smoke-pack` (Verifies packaged executable launches, runs migration checks, and verifies setup/auth logic).
+- **Exit Criteria:** First-run wizard populates `dairy_profile`; Owner/Operator logins work; Marathi UI toggles instantly to English; session authority and audit logging active (All criteria PASSED).
 
 ---
 
-### Stage 4: Farmer / Member Management & Opening Balances
+### Stage 4: Farmer / Member Management & Opening Balances *(COMPLETED)*
 - **Objective:** Deliver complete member directory with fast search, masked bank/UPI metadata, opening ledger balances, and soft deactivation.
 - **Entry Requirements:** Stage 3 verified.
 - **Deliverables:**
-  - Migration `002_farmers.sql` creating `farmers` table and indexes.
-  - `FarmerRepository` (Parameterized SQL queries, unique `member_code` enforcement, soft delete `is_active = 0`).
-  - Farmer list view with search by Code, Name (Marathi/English), and Mobile.
-  - Farmer Add/Edit modal with opening balance entry (`positive = payable`, `negative = debt`).
-  - Protection rule: opening balance is immutable after transactions exist; audit event logged on creation/updates.
+  - [x] Migration `002_farmers.sql` creating `farmers` table with unique case-insensitive `member_code COLLATE NOCASE`, indexes, and soft-deactivation flags (`is_active`).
+  - [x] Auto-generated and verified `PRE_MIGRATION` backup execution prior to running Migration 002 on initialized databases.
+  - [x] `FarmerRepository` with parameterized SQL queries, literal wildcard escaping (`%`, `_`, `\`), dynamic financial activity detection, and soft delete (`is_active = 0`).
+  - [x] `FarmerService` with authoritative main-process validation, Owner RBAC enforcement, PII masking (`maskBankAccount`, `maskUpiId`), and atomic audit logging (`FARMER_CREATED`, `FARMER_UPDATED`, `FARMER_DEACTIVATED`, `FARMER_REACTIVATED`).
+  - [x] Exact integer paise conversion utilities (`parseRupeesToPaise`, `formatPaiseAsRupees`) with zero floating-point accumulation.
+  - [x] Farmer directory UI (`/farmers`) with fast search, active/inactive/milk-type filters, Add/Edit dialog, soft-deactivate confirmation, and Marathi/English bilingual parity.
+  - [x] Opening balance lock rule: editing opening balance is strictly prohibited inside the update transaction once financial transactions exist.
 - **Verification Commands:**
-  - `npm run test:farmers` (Tests uniqueness of member codes, soft deactivation, and balance persistence).
-- **Exit Criteria:** Farmers can be created, searched, edited, and soft-deactivated; hard deletes are blocked; opening balance lock verified; unit and UI tests pass.
+  - `npm run test:farmers` (All 26 unit and integration tests pass across money parsing, PII masking, Migration 002, PRE_MIGRATION backups, repository, service, and RBAC).
+  - `npm run test` (All 115 tests pass across 24 test suites: 41 Angular specs + 74 backend integration/unit specs).
+  - `npm run test:ipc-smoke` (Verifies bidirectional IPC, SQLite migrations, Stage 3 auth, and Stage 4 farmer lifecycle in isolated runtime).
+  - `npm run build:smoke-pack` (Verifies packaged executable launches and executes full Stage 1–4 verification sequence).
+- **Exit Criteria:** Farmers can be created, searched, edited, and soft-deactivated; hard deletes are blocked; opening balance lock verified; all automated and packaged smoke tests pass (All criteria PASSED).
 
 ---
 
-### Stage 5: Rate Plan Engine & Confirmed Pricing Strategy
+### Stage 5: Rate Plan Engine & Confirmed Pricing Strategy *(NEXT ACTIVE STAGE)*
 - **Objective:** Build the core pricing engine supporting Cow and Buffalo milk executing the owner-approved pricing strategy with strict validation and zero rate fabrication.
 - **Entry Requirements (MANDATORY GATE):**
   1. Actual Cow Rate Chart received from pilot dairy.

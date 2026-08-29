@@ -2,6 +2,8 @@ import { app, BrowserWindow } from 'electron';
 import * as fs from 'fs';
 import { getAppConfig } from './core/config';
 import { applySecurityPolicies } from './core/security';
+import { closeDatabaseConnection, initDatabaseConnection } from './db/connection';
+import { runMigrations, runMigrationsAsync } from './db/migrator';
 import { registerIpcHandlers } from './ipc/handlers';
 
 let mainWindow: BrowserWindow | null = null;
@@ -49,84 +51,114 @@ async function createWindow(): Promise<BrowserWindow> {
   return mainWindow;
 }
 
-// Ensure single application instance
-const gotTheLock = app.requestSingleInstanceLock();
-if (!gotTheLock) {
-  app.quit();
-} else {
-  app.on('second-instance', () => {
-    if (mainWindow) {
-      if (mainWindow.isMinimized()) mainWindow.restore();
-      mainWindow.focus();
-    }
-  });
+// Ensure single application instance (for standard interactive runs)
+const config = getAppConfig();
+if (!config.isSmokeTest) {
+  const gotTheLock = app.requestSingleInstanceLock();
+  if (!gotTheLock) {
+    app.quit();
+  } else {
+    app.on('second-instance', () => {
+      if (mainWindow) {
+        if (mainWindow.isMinimized()) mainWindow.restore();
+        mainWindow.focus();
+      }
+    });
+  }
+}
 
-  app.whenReady().then(async () => {
-    // 1. Register IPC Handlers
-    registerIpcHandlers();
+app.whenReady().then(async () => {
+  // 1. Register IPC Handlers
+  registerIpcHandlers();
 
-    const config = getAppConfig();
+  const runtimeConfig = getAppConfig();
 
-    if (config.isSmokeTest) {
-      console.log('[Main] Running in Automated IPC Smoke Test Mode...');
-      try {
-        const win = await createWindow();
+  if (runtimeConfig.isSmokeTest) {
+    console.log('[Main] Running in Automated IPC Smoke Test Mode...');
+    try {
+      const win = await createWindow();
 
-        // Brief yield to ensure renderer JS loop has processed DOM bootstrap
-        await new Promise(r => setTimeout(r, 250));
+      // Brief yield to ensure renderer JS loop has processed DOM bootstrap
+      await new Promise((r) => setTimeout(r, 250));
 
-        // Execute real renderer -> preload -> main IPC test
-        const testResult = await win.webContents.executeJavaScript(`
-          (async () => {
-            if (!window.dairyApi) {
-              return { success: false, error: 'window.dairyApi is not defined in renderer context' };
-            }
-            try {
-              const pingRes = await window.dairyApi.ping();
-              const sqliteRes = await window.dairyApi.smokeSqlite();
-              const versionRes = await window.dairyApi.getAppVersion();
-              return {
-                success: pingRes.success && sqliteRes.success && versionRes.success,
-                ping: pingRes,
-                sqlite: sqliteRes,
-                version: versionRes
-              };
-            } catch (e) {
-              return { success: false, error: String(e) };
-            }
-          })()
-        `);
+      // Execute real renderer -> preload -> main IPC test
+      const testResult = await win.webContents.executeJavaScript(`
+        (async () => {
+          if (!window.dairyApi) {
+            return { success: false, error: 'window.dairyApi is not defined in renderer context' };
+          }
+          try {
+            const pingRes = await window.dairyApi.ping();
+            const sqliteRes = await window.dairyApi.smokeSqlite();
+            const versionRes = await window.dairyApi.getAppVersion();
+            return {
+              success:
+                pingRes.success &&
+                sqliteRes.success &&
+                versionRes.success &&
+                sqliteRes.data?.migrationOk === true &&
+                sqliteRes.data?.stage3?.ownerLoginOk === true &&
+                sqliteRes.data?.stage4?.farmerCreatedOk === true &&
+                sqliteRes.data?.stage4?.searchOk === true &&
+                sqliteRes.data?.stage4?.deactivateOk === true,
+              ping: pingRes,
+              sqlite: sqliteRes,
+              version: versionRes,
+            };
+          } catch (e) {
+            return { success: false, error: String(e) };
+          }
+        })()
+      `);
 
-        console.log('=== SMOKE TEST RENDERER EXECUTION RESULT ===');
-        console.log(JSON.stringify(testResult, null, 2));
+      console.log('=== SMOKE TEST RENDERER EXECUTION RESULT ===');
+      console.log(JSON.stringify(testResult, null, 2));
 
-        if (testResult && testResult.success) {
-          console.log('[Main] Smoke Test PASSED across Renderer, Preload, and Main processes.');
-          app.quit();
-          process.exit(0);
-        } else {
-          console.error('[Main] Smoke Test FAILED:', testResult);
-          app.quit();
-          process.exit(1);
-        }
-      } catch (err: unknown) {
-        console.error('[Main] Error during smoke test execution:', err);
+      if (testResult && testResult.success) {
+        console.log('[Main] Smoke Test PASSED across Renderer, Preload, and Main processes.');
+        app.quit();
+        process.exit(0);
+      } else {
+        console.error('[Main] Smoke Test FAILED:', testResult);
         app.quit();
         process.exit(1);
       }
-      return;
+    } catch (err: unknown) {
+      console.error('[Main] Error during smoke test execution:', err);
+      app.quit();
+      process.exit(1);
     }
+    return;
+  }
 
-    // Normal application launch
-    await createWindow();
+  // 2. Normal Application Boot: Initialize database and run migrations
+  try {
+    console.log('[Main] Initializing SQLite database connection...');
+    const db = initDatabaseConnection();
+    const migrationReport = await runMigrationsAsync(db);
+    console.log(
+      `[Main] Database initialized. Applied ${migrationReport.appliedCount} migration(s), current version: ${migrationReport.totalVersion}`
+    );
+  } catch (dbErr) {
+    console.error('[Main] Fatal error during database initialization or migration:', dbErr);
+    app.quit();
+    return;
+  }
 
-    app.on('activate', async () => {
-      if (BrowserWindow.getAllWindows().length === 0) {
-        await createWindow();
-      }
-    });
+  // 3. Normal application window launch
+  await createWindow();
+
+  app.on('activate', async () => {
+    if (BrowserWindow.getAllWindows().length === 0) {
+      await createWindow();
+    }
   });
-}
+});
+
+app.on('before-quit', () => {
+  console.log('[Main] Application shutting down. Closing database connection...');
+  closeDatabaseConnection();
+});
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {

@@ -1,0 +1,136 @@
+.farmer-dialog-container {
+  width: 100%;
+  max-width: 680px;
+  min-width: 320px;
+}
+
+.dialog-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 24px 8px 24px;
+  border-bottom: 1px solid #e2e8f0;
+
+  h2 {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    font-size: 18px;
+    font-weight: 700;
+    color: #0f172a;
+  }
+}
+
+.loading-box {
+  padding: 48px 24px;
+  text-align: center;
+
+  p {
+    margin-top: 16px;
+    color: #64748b;
+  }
+}
+
+.dialog-scroll-content {
+  max-height: 75vh;
+  overflow-y: auto;
+  padding: 16px 24px !important;
+}
+
+.error-banner {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+  padding: 10px 14px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  font-size: 13px;
+}
+
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #1e3a8a;
+  margin: 16px 0 12px 0;
+  padding-bottom: 4px;
+  border-bottom: 1px dashed #cbd5e1;
+
+  mat-icon {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+  }
+}
+
+.form-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+
+  .col-6 {
+    flex: 1 1 calc(50% - 6px);
+    min-width: 240px;
+  }
+}
+
+.balance-container {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 12px;
+
+  .field-label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: #334155;
+    margin-bottom: 8px;
+  }
+
+  .radio-row {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .amount-field {
+    width: 100%;
+    max-width: 280px;
+  }
+}
+
+.lock-notice {
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  color: #92400e;
+  padding: 8px 12px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  font-size: 12px;
+  font-weight: 500;
+
+  mat-icon {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+  }
+}
+
+.dialog-actions {
+  padding: 12px 24px;
+  border-top: 1px solid #e2e8f0;
+  display: flex;
+  gap: 8px;
+}

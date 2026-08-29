@@ -1,0 +1,135 @@
+<div class="login-wrapper">
+  <div class="language-bar">
+    <button mat-stroked-button color="primary" type="button" (click)="i18n.toggleLanguage()">
+      <mat-icon>translate</mat-icon>
+      {{ (i18n.isMarathi() ? 'common.english' : 'common.marathi') | translate }}
+    </button>
+  </div>
+
+  <mat-card class="login-card">
+    <div class="brand-section">
+      <div class="brand-icon">
+        <mat-icon>local_drink</mat-icon>
+      </div>
+      <h1 class="app-title">{{ 'app.title' | translate }}</h1>
+      <p class="app-subtitle">{{ 'auth.login_subtitle' | translate }}</p>
+    </div>
+
+    @if (isInconsistentState()) {
+      <div class="inconsistent-banner">
+        <mat-icon>warning</mat-icon>
+        <span>{{ 'auth.inconsistent_error' | translate }}</span>
+      </div>
+    }
+
+    @if (errorMessage()) {
+      <div class="error-banner">
+        <mat-icon>error_outline</mat-icon>
+        <span>{{ errorMessage() }}</span>
+      </div>
+    }
+
+    <div class="mode-tabs">
+      <button
+        type="button"
+        class="tab-btn"
+        [class.active]="loginMode() === 'password'"
+        (click)="setMode('password')"
+      >
+        <mat-icon>lock</mat-icon>
+        {{ 'auth.tab_password' | translate }}
+      </button>
+      <button
+        type="button"
+        class="tab-btn"
+        [class.active]="loginMode() === 'pin'"
+        (click)="setMode('pin')"
+      >
+        <mat-icon>pin</mat-icon>
+        {{ 'auth.tab_pin' | translate }}
+      </button>
+    </div>
+
+    @if (loginMode() === 'password') {
+      <form [formGroup]="passwordForm" (ngSubmit)="submitLogin()" class="login-form">
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>{{ 'auth.username' | translate }}</mat-label>
+          <input matInput formControlName="username" placeholder="owner" autocomplete="username" />
+          <mat-icon matPrefix>person</mat-icon>
+          @if (passwordForm.get('username')?.invalid && passwordForm.get('username')?.touched) {
+            <mat-error>{{ 'common.required' | translate }}</mat-error>
+          }
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>{{ 'auth.password' | translate }}</mat-label>
+          <input
+            matInput
+            [type]="hidePassword() ? 'password' : 'text'"
+            formControlName="password"
+            autocomplete="current-password"
+          />
+          <mat-icon matPrefix>lock</mat-icon>
+          <button mat-icon-button matSuffix type="button" (click)="hidePassword.set(!hidePassword())">
+            <mat-icon>{{ hidePassword() ? 'visibility_off' : 'visibility' }}</mat-icon>
+          </button>
+          @if (passwordForm.get('password')?.invalid && passwordForm.get('password')?.touched) {
+            <mat-error>{{ 'common.required' | translate }}</mat-error>
+          }
+        </mat-form-field>
+
+        @if (isSubmitting()) {
+          <mat-progress-bar mode="indeterminate" class="login-progress"></mat-progress-bar>
+        }
+
+        <button
+          mat-flat-button
+          color="primary"
+          type="submit"
+          class="submit-btn"
+          [disabled]="isSubmitting() || isInconsistentState()"
+        >
+          <mat-icon>login</mat-icon>
+          {{ 'auth.login_button' | translate }}
+        </button>
+      </form>
+    }
+
+    @if (loginMode() === 'pin') {
+      <form [formGroup]="pinForm" (ngSubmit)="submitLogin()" class="login-form">
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>{{ 'auth.username' | translate }}</mat-label>
+          <input matInput formControlName="username" placeholder="owner" />
+          <mat-icon matPrefix>person</mat-icon>
+          @if (pinForm.get('username')?.invalid && pinForm.get('username')?.touched) {
+            <mat-error>{{ 'common.required' | translate }}</mat-error>
+          }
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>{{ 'auth.pin' | translate }}</mat-label>
+          <input matInput type="password" formControlName="pin" maxlength="6" placeholder="1234" />
+          <mat-icon matPrefix>dialpad</mat-icon>
+          @if (pinForm.get('pin')?.invalid && pinForm.get('pin')?.touched) {
+            <mat-error>{{ 'common.required' | translate }}</mat-error>
+          }
+        </mat-form-field>
+
+        @if (isSubmitting()) {
+          <mat-progress-bar mode="indeterminate" class="login-progress"></mat-progress-bar>
+        }
+
+        <button
+          mat-flat-button
+          color="primary"
+          type="submit"
+          class="submit-btn"
+          [disabled]="isSubmitting() || isInconsistentState()"
+        >
+          <mat-icon>login</mat-icon>
+          {{ 'auth.login_button' | translate }}
+        </button>
+      </form>
+    }
+  </mat-card>
+</div>

@@ -1,0 +1,220 @@
+<div class="farmer-dialog-container">
+  <div class="dialog-header">
+    <h2 mat-dialog-title>
+      <mat-icon>{{ data.mode === 'create' ? 'person_add' : 'edit' }}</mat-icon>
+      {{ (data.mode === 'create' ? 'farmers.add_farmer_title' : 'farmers.edit_farmer_title') | translate }}
+    </h2>
+    <button mat-icon-button mat-dialog-close type="button">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+
+  @if (isLoadingDetails()) {
+    <div class="loading-box">
+      <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+      <p>{{ 'common.loading' | translate }}</p>
+    </div>
+  } @else {
+    <form [formGroup]="farmerForm" (ngSubmit)="saveFarmer()">
+      <mat-dialog-content class="dialog-scroll-content">
+        @if (errorMessage()) {
+          <div class="error-banner">
+            <mat-icon>error_outline</mat-icon>
+            <span>{{ errorMessage() }}</span>
+          </div>
+        }
+
+        <!-- Section 1: Member Identity -->
+        <h3 class="section-title">
+          <mat-icon>badge</mat-icon>
+          {{ 'farmers.section_identity' | translate }}
+        </h3>
+
+        <div class="form-grid">
+          <mat-form-field appearance="outline" class="col-6">
+            <mat-label>{{ 'farmers.member_code' | translate }} *</mat-label>
+            <input
+              matInput
+              formControlName="memberCode"
+              [placeholder]="'farmers.member_code_placeholder' | translate"
+            />
+            <mat-hint>{{ 'farmers.member_code_hint' | translate }}</mat-hint>
+            @if (farmerForm.get('memberCode')?.hasError('required')) {
+              <mat-error>{{ 'common.required' | translate }}</mat-error>
+            }
+            @if (farmerForm.get('memberCode')?.hasError('pattern')) {
+              <mat-error>{{ 'farmers.invalid_member_code' | translate }}</mat-error>
+            }
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="col-6">
+            <mat-label>{{ 'farmers.milk_type' | translate }} *</mat-label>
+            <mat-select formControlName="defaultMilkType">
+              <mat-option value="COW">{{ 'farmers.milk_cow' | translate }}</mat-option>
+              <mat-option value="BUFFALO">{{ 'farmers.milk_buffalo' | translate }}</mat-option>
+              <mat-option value="BOTH">{{ 'farmers.milk_both' | translate }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="col-6">
+            <mat-label>{{ 'farmers.name_mr' | translate }} *</mat-label>
+            <input
+              matInput
+              formControlName="nameMr"
+              [placeholder]="'farmers.name_mr_placeholder' | translate"
+            />
+            @if (farmerForm.get('nameMr')?.hasError('required')) {
+              <mat-error>{{ 'common.required' | translate }}</mat-error>
+            }
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="col-6">
+            <mat-label>{{ 'farmers.name_en' | translate }}</mat-label>
+            <input
+              matInput
+              formControlName="nameEn"
+              [placeholder]="'farmers.name_en_placeholder' | translate"
+            />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="col-6">
+            <mat-label>{{ 'farmers.phone' | translate }}</mat-label>
+            <input
+              matInput
+              formControlName="phone"
+              type="tel"
+              [placeholder]="'farmers.phone_placeholder' | translate"
+            />
+            @if (farmerForm.get('phone')?.hasError('pattern')) {
+              <mat-error>{{ 'setup.invalid_phone' | translate }}</mat-error>
+            }
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="col-6">
+            <mat-label>{{ 'farmers.village' | translate }}</mat-label>
+            <input
+              matInput
+              formControlName="village"
+              [placeholder]="'farmers.village_placeholder' | translate"
+            />
+          </mat-form-field>
+        </div>
+
+        <!-- Section 2: Opening Balance -->
+        <h3 class="section-title">
+          <mat-icon>account_balance_wallet</mat-icon>
+          {{ 'farmers.section_balance' | translate }}
+        </h3>
+
+        @if (hasFinancialActivity()) {
+          <div class="lock-notice">
+            <mat-icon>lock</mat-icon>
+            <span>{{ 'farmers.balance_locked_notice' | translate }}</span>
+          </div>
+        }
+
+        <div class="balance-container">
+          <div class="direction-selector">
+            <label class="field-label">{{ 'farmers.balance_direction' | translate }}:</label>
+            <mat-radio-group formControlName="balanceDirection" class="radio-row">
+              <mat-radio-button value="NONE">
+                {{ 'farmers.direction_none' | translate }}
+              </mat-radio-button>
+              <mat-radio-button value="PAYABLE_TO_FARMER">
+                {{ 'farmers.direction_payable' | translate }} (जमा / देणे)
+              </mat-radio-button>
+              <mat-radio-button value="FARMER_DEBT_TO_DAIRY">
+                {{ 'farmers.direction_debt' | translate }} (नावे / येणे)
+              </mat-radio-button>
+            </mat-radio-group>
+          </div>
+
+          @if (farmerForm.get('balanceDirection')?.value !== 'NONE') {
+            <mat-form-field appearance="outline" class="amount-field">
+              <mat-label>{{ 'farmers.balance_amount_rupees' | translate }} (₹)</mat-label>
+              <input
+                matInput
+                formControlName="balanceRupees"
+                type="text"
+                placeholder="0.00"
+              />
+              <span matPrefix>₹&nbsp;</span>
+              @if (farmerForm.get('balanceRupees')?.hasError('pattern')) {
+                <mat-error>{{ 'farmers.invalid_amount' | translate }}</mat-error>
+              }
+            </mat-form-field>
+          }
+        </div>
+
+        <!-- Section 3: Bank & Digital Payment Details -->
+        <h3 class="section-title">
+          <mat-icon>account_balance</mat-icon>
+          {{ 'farmers.section_bank' | translate }}
+        </h3>
+
+        <div class="form-grid">
+          <mat-form-field appearance="outline" class="col-6">
+            <mat-label>{{ 'farmers.bank_account' | translate }}</mat-label>
+            <input
+              matInput
+              formControlName="bankAccountNumber"
+              [placeholder]="'farmers.bank_account_placeholder' | translate"
+            />
+            @if (farmerForm.get('bankAccountNumber')?.hasError('pattern')) {
+              <mat-error>{{ 'farmers.invalid_bank_account' | translate }}</mat-error>
+            }
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="col-6">
+            <mat-label>{{ 'farmers.bank_ifsc' | translate }}</mat-label>
+            <input
+              matInput
+              formControlName="bankIfsc"
+              style="text-transform: uppercase;"
+              [placeholder]="'farmers.bank_ifsc_placeholder' | translate"
+            />
+            @if (farmerForm.get('bankIfsc')?.hasError('pattern')) {
+              <mat-error>{{ 'farmers.invalid_ifsc' | translate }}</mat-error>
+            }
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="col-6">
+            <mat-label>{{ 'farmers.bank_name' | translate }}</mat-label>
+            <input
+              matInput
+              formControlName="bankName"
+              [placeholder]="'farmers.bank_name_placeholder' | translate"
+            />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="col-6">
+            <mat-label>{{ 'farmers.upi_id' | translate }}</mat-label>
+            <input
+              matInput
+              formControlName="upiId"
+              [placeholder]="'farmers.upi_id_placeholder' | translate"
+            />
+            @if (farmerForm.get('upiId')?.hasError('pattern')) {
+              <mat-error>{{ 'farmers.invalid_upi' | translate }}</mat-error>
+            }
+          </mat-form-field>
+        </div>
+      </mat-dialog-content>
+
+      <mat-dialog-actions align="end" class="dialog-actions">
+        <button mat-button mat-dialog-close type="button" [disabled]="isSaving()">
+          {{ 'common.cancel' | translate }}
+        </button>
+        <button
+          mat-flat-button
+          color="primary"
+          type="submit"
+          [disabled]="farmerForm.invalid || isSaving()"
+        >
+          <mat-icon>{{ isSaving() ? 'hourglass_top' : 'save' }}</mat-icon>
+          {{ (isSaving() ? 'common.loading' : 'common.save') | translate }}
+        </button>
+      </mat-dialog-actions>
+    </form>
+  }
+</div>

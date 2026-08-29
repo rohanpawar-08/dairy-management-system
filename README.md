@@ -18,12 +18,23 @@ The system digitizes and automates daily morning and evening milk collection, dy
 |---|---|---|
 | **Stage 0: Documentation & Project Governance** | **Completed** | PRD, System Design, Roadmap, Decisions, and Open Questions defined and reviewed. |
 | **Stage 1: Project Scaffolding & Shell** | **Completed** | Angular 22 standalone app, TypeScript Electron shell, typed IPC preload bridge, and better-sqlite3 native smoke tests verified. |
-| **Stage 2: Database Layer & Migrations** | **Next** | Schema migrations, connection management, WAL mode, and foundation tables. |
-| **Current Implementation State** | **Stage 1 Verified** | All unit tests, IPC smoke tests, and packaged builds passing with exit code 0. |
+| **Stage 2: Database Layer & Migrations** | **Completed** | SQLite connection lifecycle (WAL, FULL synchronous, foreign keys), incremental migrations engine, Migration 001 foundation schema, and verified async backup service. |
+| **Stage 3: Auth, Session & Security** | **Completed** | First-run setup wizard, Scrypt salt+hash auth, PIN login, memory session authority, sliding-window rate limiting, and append-only audit logging. |
+| **Stage 4: Farmer Directory & Opening Balances** | **Completed** | Farmer registration, search, masked bank/UPI metadata, integer paise opening balances, soft deactivation, and balance locking. |
+| **Stage 5: Rate Plan Engine & Pricing Strategy** | **Next** | Pricing strategy engine (Cow/Buffalo), rate charts, integer rate arithmetic, and owner rate approvals. |
+| **Current Implementation State** | **Stage 4 Verified** | All 115 unit and integration tests passing (`npm test`, `test:farmers`, `test:auth`, `test:audit-base`, `test:db`, `test:backup-basic`, `test:ipc-smoke`, `build:smoke-pack`). |
 
 ---
 
-## 💻 Stage 1 Development & Build Commands
+## 🗄️ Local Database & Storage
+
+* **Production Database File:** `app.getPath('userData')/dairy_data.db`
+* **Configuration:** SQLite with Write-Ahead Logging (`WAL`), `synchronous = FULL`, and enforced foreign keys (`PRAGMA foreign_keys = ON`).
+* ⚠️ **Data Integrity Warning:** Never edit, delete, or modify SQLite database files (`dairy_data.db`, `dairy_data.db-wal`, `dairy_data.db-shm`) directly using external database tools while the application is running or in production. All schema alterations must strictly occur through versioned migration scripts in the incremental migration engine.
+
+---
+
+## 💻 Development, Build & Test Commands
 
 ```bash
 # Install pinned dependencies
@@ -32,10 +43,25 @@ npm install
 # Start Angular renderer and Electron in development mode
 npm run dev
 
-# Run all unit tests (Angular + Backend) non-interactively
+# Run full test suite (Angular component + backend unit + farmers + auth/audit + database + backup integration)
 npm test
 
-# Build Angular production bundle and Electron main/preload
+# Run Stage 4 Farmer management, exact money arithmetic, PII masking & migration integration tests
+npm run test:farmers
+
+# Run authentication and credential security unit & integration tests
+npm run test:auth
+
+# Run append-only audit service integration tests
+npm run test:audit-base
+
+# Run isolated database layer and migration integration tests
+npm run test:db
+
+# Run verified asynchronous backup service integration tests
+npm run test:backup-basic
+
+# Build Angular production bundle and Electron main/preload (with migration assets)
 npm run build
 
 # Run automated IPC & SQLite native smoke test in Electron runtime

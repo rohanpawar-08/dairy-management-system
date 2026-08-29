@@ -1,0 +1,42 @@
+<div class="inconsistent-container">
+  <div class="language-bar">
+    <button mat-stroked-button color="primary" type="button" (click)="i18n.toggleLanguage()">
+      <mat-icon>translate</mat-icon>
+      {{ (i18n.isMarathi() ? 'common.english' : 'common.marathi') | translate }}
+    </button>
+  </div>
+
+  <mat-card class="inconsistent-card">
+    <div class="warning-icon-box">
+      <mat-icon>gpp_maybe</mat-icon>
+    </div>
+
+    <h1 class="title">{{ 'inconsistent.title' | translate }}</h1>
+    <p class="subtitle">{{ 'inconsistent.subtitle' | translate }}</p>
+
+    <div class="alert-box">
+      <mat-icon>warning</mat-icon>
+      <div class="alert-text">
+        <p>{{ 'inconsistent.description' | translate }}</p>
+        <p class="hint">{{ 'inconsistent.action_hint' | translate }}</p>
+      </div>
+    </div>
+
+    @if (isChecking()) {
+      <mat-progress-bar mode="indeterminate" class="checking-bar"></mat-progress-bar>
+    }
+
+    <div class="actions-row">
+      <button
+        mat-flat-button
+        color="primary"
+        type="button"
+        [disabled]="isChecking()"
+        (click)="checkAgain()"
+      >
+        <mat-icon>refresh</mat-icon>
+        {{ 'inconsistent.retry_button' | translate }}
+      </button>
+    </div>
+  </mat-card>
+</div>

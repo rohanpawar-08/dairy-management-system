@@ -179,3 +179,16 @@
   3. Prohibit any manual patching or fabrication of files inside `electron-builder`'s global cache (`%LOCALAPPDATA%\electron-builder\Cache`).
   4. Defer Windows icon embedding, resource editing, and production code-signing configuration to Stage 11.
 - **Rationale:** Node-API is ABI-stable across Node and Electron versions supporting N-API 9/10, eliminating local C++ compilation failures, reducing packaging time, and ensuring 100% reproducible execution across development, CI, and packaged Windows binaries without global cache tampering.
+
+---
+
+### ADR-019: Main-Process Session Authority, Sliding-Window Rate Limiting, and Offline Bilingual i18n
+- **Status:** Accepted
+- **Context:** First-run dairy setup and authentication must function 100% offline without remote identity providers. The application must guarantee that credentials cannot be harvested from the renderer, passwords/PINs never leak into log files, failed logins are throttled to prevent brute-force attacks on unattended terminals, and Marathi/English translations operate with zero latency.
+- **Decision:**
+  1. **Scrypt Parameterization & Timing-Safe Equality:** Hashes use standard format `$scrypt$v=1$N=16384,r=8,p=1$<salt_hex>$<derived_key_hex>` with unique 32-byte salts, 64-byte keys, maxmem 32MB, and `crypto.timingSafeEqual` comparison.
+  2. **Memory Session Authority:** Sessions are stored strictly in Electron main-process memory keyed on `webContents.id`. Angular route guards provide UX convenience, while main-process IPC handlers strictly enforce session and role authority (`requireAuthenticated`, `requireRole('OWNER')`).
+  3. **Local In-Memory Rate Limiting:** Throttles authentication after 5 consecutive failures per `username:webContentsId` pair within a 5-minute sliding window, locking further attempts for 5 minutes. Reset immediately upon successful authentication. Injectable clock facilitates deterministic automated testing without real-time sleep.
+  4. **Append-Only Audit Logging with Secret Redaction:** Security events (`SETUP_COMPLETED`, `AUTH_LOGIN_SUCCESS`, `AUTH_LOGIN_FAILED`, `AUTH_RATE_LIMITED`, `AUTH_LOGOUT`) are written exclusively to `audit_logs` with stable `device_id`. All input detail dictionaries are recursively sanitized to redact passwords, PINs, hashes, tokens, and secrets. Successful login aborts session creation if audit recording fails.
+  5. **Offline Bilingual i18n:** Bundles static `public/assets/i18n/mr.json` and `public/assets/i18n/en.json` directly with 100% key parity, Marathi default, and instant signal-driven language toggling.
+- **Rationale:** Establishes a zero-trust boundary between the untrusted renderer and privileged main process, eliminates credential leakage, protects local terminals, and guarantees a seamless offline user experience.

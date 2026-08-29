@@ -6,6 +6,14 @@ describe('IPC Contracts & Channel Definitions', () => {
     expect(IPC_CHANNELS.PING).toBe('dairy:ping');
     expect(IPC_CHANNELS.SQLITE_SMOKE).toBe('dairy:sqlite-smoke');
     expect(IPC_CHANNELS.APP_VERSION).toBe('dairy:app-version');
+    expect(IPC_CHANNELS.FARMER_LIST).toBe('dairy:farmer:list');
+    expect(IPC_CHANNELS.FARMER_GET).toBe('dairy:farmer:get');
+    expect(IPC_CHANNELS.FARMER_GET_BY_CODE).toBe('dairy:farmer:get-by-code');
+    expect(IPC_CHANNELS.FARMER_GET_EDIT_DETAIL).toBe('dairy:farmer:get-edit-detail');
+    expect(IPC_CHANNELS.FARMER_CREATE).toBe('dairy:farmer:create');
+    expect(IPC_CHANNELS.FARMER_UPDATE).toBe('dairy:farmer:update');
+    expect(IPC_CHANNELS.FARMER_DEACTIVATE).toBe('dairy:farmer:deactivate');
+    expect(IPC_CHANNELS.FARMER_REACTIVATE).toBe('dairy:farmer:reactivate');
   });
 
   it('should format successful IPC responses correctly', () => {
