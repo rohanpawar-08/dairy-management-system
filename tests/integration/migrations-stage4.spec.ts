@@ -41,11 +41,11 @@ describe('Migration 002: Farmers & PRE_MIGRATION Backup (Integration)', () => {
     if (!db) throw new Error('DB not initialized');
 
     const result = runMigrations(db);
-    expect(result.totalVersion).toBe(2);
-    expect(result.appliedCount).toBe(2);
+    expect(result.totalVersion).toBe(3);
+    expect(result.appliedCount).toBe(3);
 
     const version = getCurrentMigrationVersion(db);
-    expect(version).toBe(2);
+    expect(version).toBe(3);
 
     // Verify farmers table exists
     const tableRow = db
@@ -72,7 +72,7 @@ describe('Migration 002: Farmers & PRE_MIGRATION Backup (Integration)', () => {
     runMigrations(db);
     const rerun = runMigrations(db);
     expect(rerun.appliedCount).toBe(0);
-    expect(rerun.totalVersion).toBe(2);
+    expect(rerun.totalVersion).toBe(3);
   });
 
   it('creates and records verified PRE_MIGRATION backup before applying pending migration to initialized DB', async () => {

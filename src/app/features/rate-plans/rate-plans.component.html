@@ -1,0 +1,355 @@
+<div class="rate-plans-page">
+  <!-- Top Navigation & Header -->
+  <header class="page-header">
+    <div class="header-left">
+      <button mat-icon-button (click)="goToDashboard()" [attr.aria-label]="'common.back' | translate">
+        <mat-icon>arrow_back</mat-icon>
+      </button>
+      <div class="header-title-group">
+        <h1 class="page-title">{{ 'rates.title' | translate }}</h1>
+        <p class="page-subtitle">{{ 'rates.subtitle' | translate }}</p>
+      </div>
+    </div>
+
+    <div class="header-actions">
+      <button
+        mat-flat-button
+        color="primary"
+        (click)="openCreateDialog()"
+      >
+        <mat-icon>add</mat-icon>
+        <span>{{ 'rates.newRatePlan' | translate }}</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Missing Rate Plans Alert Banner -->
+  <div *ngIf="ratePlanState.hasMissingApprovedRate()" class="missing-rates-banner">
+    <mat-icon>warning</mat-icon>
+    <div class="banner-text">
+      <strong>{{ 'rates.missingApprovedRatesTitle' | translate }}</strong>
+      <span>{{ 'rates.missingApprovedRatesDesc' | translate }}</span>
+    </div>
+  </div>
+
+  <!-- Summary Cards: Active & Upcoming Rate Plans -->
+  <section class="summary-cards-grid">
+    <!-- Active Cow Plan -->
+    <mat-card class="summary-card active-plan" [class.empty]="!ratePlanState.currentCowPlan()">
+      <mat-card-header>
+        <mat-icon mat-card-avatar class="cow-icon">pets</mat-icon>
+        <mat-card-title>{{ 'rates.currentCowPlan' | translate }}</mat-card-title>
+        <mat-card-subtitle *ngIf="ratePlanState.currentCowPlan() as cow">
+          {{ cow.planName }}
+        </mat-card-subtitle>
+      </mat-card-header>
+      <mat-card-content>
+        <div *ngIf="ratePlanState.currentCowPlan() as cow; else noCow">
+          <div class="rate-metric-row">
+            <div class="metric">
+              <span class="label">FAT (₹/pt)</span>
+              <span class="value">₹{{ formatRupees(cow.parameters.fatRatePaisePerPoint) }}</span>
+            </div>
+            <div class="metric">
+              <span class="label">SNF (₹/pt)</span>
+              <span class="value">₹{{ formatRupees(cow.parameters.snfRatePaisePerPoint) }}</span>
+            </div>
+          </div>
+          <div class="period-info">
+            <mat-icon>calendar_today</mat-icon>
+            <span>{{ cow.effectiveFrom }} {{ cow.effectiveTo ? ('ते ' + cow.effectiveTo) : ('(पुढे चालू)') }}</span>
+          </div>
+        </div>
+        <ng-template #noCow>
+          <div class="no-plan-placeholder">
+            <mat-icon>hourglass_empty</mat-icon>
+            <span>{{ 'rates.noActiveCowPlan' | translate }}</span>
+          </div>
+        </ng-template>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- Active Buffalo Plan -->
+    <mat-card class="summary-card active-plan" [class.empty]="!ratePlanState.currentBuffaloPlan()">
+      <mat-card-header>
+        <mat-icon mat-card-avatar class="buffalo-icon">shield</mat-icon>
+        <mat-card-title>{{ 'rates.currentBuffaloPlan' | translate }}</mat-card-title>
+        <mat-card-subtitle *ngIf="ratePlanState.currentBuffaloPlan() as buf">
+          {{ buf.planName }}
+        </mat-card-subtitle>
+      </mat-card-header>
+      <mat-card-content>
+        <div *ngIf="ratePlanState.currentBuffaloPlan() as buf; else noBuf">
+          <div class="rate-metric-row">
+            <div class="metric">
+              <span class="label">FAT (₹/pt)</span>
+              <span class="value">₹{{ formatRupees(buf.parameters.fatRatePaisePerPoint) }}</span>
+            </div>
+            <div class="metric">
+              <span class="label">SNF (₹/pt)</span>
+              <span class="value">₹{{ formatRupees(buf.parameters.snfRatePaisePerPoint) }}</span>
+            </div>
+          </div>
+          <div class="period-info">
+            <mat-icon>calendar_today</mat-icon>
+            <span>{{ buf.effectiveFrom }} {{ buf.effectiveTo ? ('ते ' + buf.effectiveTo) : ('(पुढे चालू)') }}</span>
+          </div>
+        </div>
+        <ng-template #noBuf>
+          <div class="no-plan-placeholder">
+            <mat-icon>hourglass_empty</mat-icon>
+            <span>{{ 'rates.noActiveBuffaloPlan' | translate }}</span>
+          </div>
+        </ng-template>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- Live Rate Simulator / Calculator -->
+    <mat-card class="summary-card calculator-card">
+      <mat-card-header>
+        <mat-icon mat-card-avatar class="calc-icon">calculate</mat-icon>
+        <mat-card-title>{{ 'rates.simulatorTitle' | translate }}</mat-card-title>
+        <mat-card-subtitle>{{ 'rates.simulatorSubtitle' | translate }}</mat-card-subtitle>
+      </mat-card-header>
+      <mat-card-content>
+        <form [formGroup]="calculatorForm" class="calc-form" (ngSubmit)="runCalculator()">
+          <div class="calc-inputs-row">
+            <mat-form-field appearance="outline" class="calc-field">
+              <mat-label>{{ 'rates.milkType' | translate }}</mat-label>
+              <mat-select formControlName="milkType">
+                <mat-option value="COW">{{ 'milk.cow' | translate }}</mat-option>
+                <mat-option value="BUFFALO">{{ 'milk.buffalo' | translate }}</mat-option>
+              </mat-select>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="calc-field">
+              <mat-label>FAT %</mat-label>
+              <input matInput formControlName="fatPercent" placeholder="4.00" />
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="calc-field">
+              <mat-label>SNF %</mat-label>
+              <input matInput formControlName="snfPercent" placeholder="8.50" />
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="calc-field">
+              <mat-label>{{ 'rates.litres' | translate }}</mat-label>
+              <input matInput formControlName="quantityLitres" placeholder="10.0" />
+            </mat-form-field>
+          </div>
+
+          <div class="calc-actions">
+            <button mat-flat-button color="accent" type="submit" [disabled]="isCalculating()">
+              <mat-icon>play_arrow</mat-icon>
+              <span>{{ 'rates.calculateRate' | translate }}</span>
+            </button>
+          </div>
+        </form>
+
+        <div *ngIf="previewResult() as res" class="calc-result" [class.error]="!res.valid">
+          <div *ngIf="res.valid; else calcErr" class="calc-success">
+            <div class="result-metric">
+              <span class="res-label">{{ 'rates.calculatedRate' | translate }}:</span>
+              <span class="res-rate">{{ res.rateRupeesFormatted }}</span>
+            </div>
+            <div *ngIf="res.amountRupeesFormatted" class="result-metric">
+              <span class="res-label">{{ 'rates.totalAmount' | translate }}:</span>
+              <span class="res-amount">{{ res.amountRupeesFormatted }}</span>
+            </div>
+          </div>
+          <ng-template #calcErr>
+            <div class="calc-error-box">
+              <mat-icon>error_outline</mat-icon>
+              <span>{{ res.error }}</span>
+            </div>
+          </ng-template>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </section>
+
+  <!-- Filter & Search Toolbar -->
+  <div class="filter-toolbar">
+    <div class="filter-group">
+      <mat-form-field appearance="outline" class="filter-field">
+        <mat-label>{{ 'rates.filterByMilk' | translate }}</mat-label>
+        <mat-select
+          [value]="selectedMilkFilter()"
+          (selectionChange)="selectedMilkFilter.set($event.value); onFilterChange()"
+        >
+          <mat-option value="ALL">{{ 'common.all' | translate }}</mat-option>
+          <mat-option value="COW">{{ 'milk.cow' | translate }}</mat-option>
+          <mat-option value="BUFFALO">{{ 'milk.buffalo' | translate }}</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="filter-field">
+        <mat-label>{{ 'rates.filterByStatus' | translate }}</mat-label>
+        <mat-select
+          [value]="selectedStatusFilter()"
+          (selectionChange)="selectedStatusFilter.set($event.value); onFilterChange()"
+        >
+          <mat-option value="ALL">{{ 'common.all' | translate }}</mat-option>
+          <mat-option value="APPROVED">{{ 'rates.status.APPROVED' | translate }}</mat-option>
+          <mat-option value="DRAFT">{{ 'rates.status.DRAFT' | translate }}</mat-option>
+          <mat-option value="CANCELLED">{{ 'rates.status.CANCELLED' | translate }}</mat-option>
+        </mat-select>
+      </mat-form-field>
+    </div>
+  </div>
+
+  <mat-progress-bar *ngIf="ratePlanState.isLoading()" mode="indeterminate"></mat-progress-bar>
+
+  <!-- Plans Table -->
+  <div class="table-container mat-elevation-z1">
+    <table mat-table [dataSource]="ratePlanState.plans()" class="plans-table">
+      <!-- Plan Name -->
+      <ng-container matColumnDef="planName">
+        <th mat-header-cell *matHeaderCellDef>{{ 'rates.planName' | translate }}</th>
+        <td mat-cell *matCellDef="let p">
+          <strong>{{ p.planName }}</strong>
+          <div *ngIf="p.notes" class="row-subtext">{{ p.notes }}</div>
+        </td>
+      </ng-container>
+
+      <!-- Milk Type -->
+      <ng-container matColumnDef="milkType">
+        <th mat-header-cell *matHeaderCellDef>{{ 'rates.milkType' | translate }}</th>
+        <td mat-cell *matCellDef="let p">
+          <span class="milk-badge" [class.cow]="p.milkType === 'COW'" [class.buffalo]="p.milkType === 'BUFFALO'">
+            {{ p.milkType === 'COW' ? ('milk.cow' | translate) : ('milk.buffalo' | translate) }}
+          </span>
+        </td>
+      </ng-container>
+
+      <!-- Status & Lifecycle -->
+      <ng-container matColumnDef="status">
+        <th mat-header-cell *matHeaderCellDef>{{ 'common.status' | translate }}</th>
+        <td mat-cell *matCellDef="let p">
+          <span class="status-badge" [ngClass]="p.lifecycleState?.toLowerCase() || p.status.toLowerCase()">
+            {{ ('rates.lifecycle.' + (p.lifecycleState || p.status)) | translate }}
+          </span>
+        </td>
+      </ng-container>
+
+      <!-- Effective Period -->
+      <ng-container matColumnDef="effectivePeriod">
+        <th mat-header-cell *matHeaderCellDef>{{ 'rates.effectivePeriod' | translate }}</th>
+        <td mat-cell *matCellDef="let p">
+          <div>{{ p.effectiveFrom }}</div>
+          <div class="row-subtext">{{ p.effectiveTo ? ('ते ' + p.effectiveTo) : ('(पुढे चालू)') }}</div>
+        </td>
+      </ng-container>
+
+      <!-- FAT Coefficient -->
+      <ng-container matColumnDef="fatCoeff">
+        <th mat-header-cell *matHeaderCellDef>FAT (₹/pt)</th>
+        <td mat-cell *matCellDef="let p">
+          <strong>₹{{ formatRupees(p.parameters.fatRatePaisePerPoint) }}</strong>
+        </td>
+      </ng-container>
+
+      <!-- SNF Coefficient -->
+      <ng-container matColumnDef="snfCoeff">
+        <th mat-header-cell *matHeaderCellDef>SNF (₹/pt)</th>
+        <td mat-cell *matCellDef="let p">
+          <strong>₹{{ formatRupees(p.parameters.snfRatePaisePerPoint) }}</strong>
+        </td>
+      </ng-container>
+
+      <!-- Bounds -->
+      <ng-container matColumnDef="bounds">
+        <th mat-header-cell *matHeaderCellDef>{{ 'rates.qualityBounds' | translate }}</th>
+        <td mat-cell *matCellDef="let p">
+          <div class="bounds-text">
+            FAT: {{ formatPercent(p.parameters.minimumFatX100) }}%–{{ formatPercent(p.parameters.maximumFatX100) }}%
+          </div>
+          <div class="bounds-text">
+            SNF: {{ formatPercent(p.parameters.minimumSnfX100) }}%–{{ formatPercent(p.parameters.maximumSnfX100) }}%
+          </div>
+        </td>
+      </ng-container>
+
+      <!-- Actions -->
+      <ng-container matColumnDef="actions">
+        <th mat-header-cell *matHeaderCellDef>{{ 'common.actions' | translate }}</th>
+        <td mat-cell *matCellDef="let p">
+          <div class="actions-cell">
+            <!-- If DRAFT: Edit, Approve, Cancel -->
+            <ng-container *ngIf="p.status === 'DRAFT'">
+              <button
+                mat-icon-button
+                color="primary"
+                (click)="openEditDialog(p)"
+                [matTooltip]="'rates.editDraft' | translate"
+              >
+                <mat-icon>edit</mat-icon>
+              </button>
+              <button
+                mat-icon-button
+                color="primary"
+                (click)="openApproveDialog(p)"
+                [matTooltip]="'rates.approvePlan' | translate"
+              >
+                <mat-icon>check_circle</mat-icon>
+              </button>
+              <button
+                mat-icon-button
+                color="warn"
+                (click)="openCancelDialog(p)"
+                [matTooltip]="'rates.cancelPlan' | translate"
+              >
+                <mat-icon>cancel</mat-icon>
+              </button>
+            </ng-container>
+
+            <!-- If APPROVED: Clone, Cancel (if not used) -->
+            <ng-container *ngIf="p.status === 'APPROVED'">
+              <button
+                mat-icon-button
+                color="accent"
+                (click)="openCloneDialog(p)"
+                [matTooltip]="'rates.clonePlan' | translate"
+              >
+                <mat-icon>content_copy</mat-icon>
+              </button>
+              <button
+                mat-icon-button
+                color="warn"
+                (click)="openCancelDialog(p)"
+                [matTooltip]="'rates.cancelPlan' | translate"
+              >
+                <mat-icon>cancel</mat-icon>
+              </button>
+            </ng-container>
+
+            <!-- If CANCELLED: Clone -->
+            <ng-container *ngIf="p.status === 'CANCELLED'">
+              <button
+                mat-icon-button
+                color="accent"
+                (click)="openCloneDialog(p)"
+                [matTooltip]="'rates.clonePlan' | translate"
+              >
+                <mat-icon>content_copy</mat-icon>
+              </button>
+            </ng-container>
+          </div>
+        </td>
+      </ng-container>
+
+      <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+      <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+
+      <!-- Row shown when there is no matching data -->
+      <tr class="mat-row" *matNoDataRow>
+        <td class="mat-cell no-data-cell" colspan="8">
+          <div class="empty-state">
+            <mat-icon>search_off</mat-icon>
+            <p>{{ 'rates.noPlansFound' | translate }}</p>
+          </div>
+        </td>
+      </tr>
+    </table>
+  </div>
+</div>

@@ -103,28 +103,26 @@ Each stage represents an **independently testable milestone**. Development proce
 
 ---
 
-### Stage 5: Rate Plan Engine & Confirmed Pricing Strategy *(NEXT ACTIVE STAGE)*
-- **Objective:** Build the core pricing engine supporting Cow and Buffalo milk executing the owner-approved pricing strategy with strict validation and zero rate fabrication.
-- **Entry Requirements (MANDATORY GATE):**
-  1. Actual Cow Rate Chart received from pilot dairy.
-  2. Actual Buffalo Rate Chart received from pilot dairy.
-  3. Confirmed pricing method (Exact Matrix, Step Bands, or Formula).
-  4. Confirmed FAT/SNF precision rules.
-  5. Confirmed rounding method (provisional `ROUND_HALF_UP` verified against real calculations).
-  6. Verified manual calculation examples for test assertions.
+### Stage 5: Owner-Controlled Cow/Buffalo FAT-SNF Formula Rate Plans *(COMPLETED)*
+- **Objective:** Build the core pricing engine supporting Cow and Buffalo milk executing confirmed `FORMULA` strategy (`PER_PERCENT_POINT_PER_LITRE`) with strict quality bounds and zero rate fabrication.
+- **Entry Requirements (MANDATORY GATE):** Completed. Confirmed `FORMULA` strategy with `ROUND_HALF_UP` integer rounding, zero seed plans, and separate Cow / Buffalo plans.
 - **Deliverables:**
-  - Migration `003_rate_plans.sql` creating `rate_plans` and `rate_chart_entries` matching confirmed strategy with non-overlapping period constraints.
-  - `CalculationEngine` executing confirmed strategy with strict rejection of unconfigured rates.
-  - Integer paise rate arithmetic with zero floating-point accumulation.
-  - Rate Plan management UI (versioning, effective dates, grid entry, and CSV import).
-  - Audit logging for rate plan creation and activations.
+  - [x] Migration `003_rate_plans.sql` creating `rate_plans` and `rate_formula_parameters` tables with SQLite triggers preventing date overlaps for approved plans.
+  - [x] `CalculationEngine` executing confirmed formula (`ratePaisePerLitre = ROUND_HALF_UP((fat_x100 * fatRate + snf_x100 * snfRate) / 100)` and `amountPaise = ROUND_HALF_UP(qtyMl * rate / 1000)`) with strict FAT/SNF bounds and step alignment.
+  - [x] Integer/BigInt paise arithmetic in `shared/money.ts` (`parsePercentToX100`, `formatX100AsPercent`, `parseLitresToMl`, `formatMlAsLitres`, `calculateRatePaisePerLitre`, `calculateCollectionAmountPaise`).
+  - [x] `RatePlanRepository` and `RatePlanService` with Owner RBAC enforcement, atomic audit logging (`RATE_PLAN_CREATED`, `RATE_PLAN_UPDATED`, `RATE_PLAN_CLONED`, `RATE_PLAN_APPROVED`, `RATE_PLAN_SUPERSEDED`, `RATE_PLAN_CANCELLED`), and public `resolveApprovedRate` for collection entry.
+  - [x] Owner-only Rate Plans Angular UI (`/rate-plans`) with summary cards, live calculation preview badge, draft creation/edit/clone dialogs, approval/supersede workflow, cancellation, and bilingual Marathi/English parity.
+  - [x] Dedicated test runner `npm run test:rates` covering calculation engine, repository, service, RBAC, Angular state, and guards.
 - **Verification Commands:**
-  - `npm run test:calculation` (Validates exact calculations against pilot test cases, out-of-bound rejections, and integer rounding).
-- **Exit Criteria:** Calculation engine computes amounts matching real dairy examples with 100% precision; unconfigured rates reject transactions with bilingual error; zero float drift.
+  - `npm run test:rates` (All 33 unit and integration tests pass across Angular and backend).
+  - `npm run test` (All 155 tests pass across 29 test suites: 49 Angular specs + 106 backend integration/unit specs).
+  - `npm run test:ipc-smoke` (Verifies bidirectional IPC, SQLite migrations 001-003, Stage 3 auth, Stage 4 farmers, and Stage 5 rate plan calculations).
+  - `npm run build:smoke-pack` (Verifies packaged executable launches and executes complete Stage 1–5 verification sequence).
+- **Exit Criteria:** Zero seed rate plans on install; calculation engine computes exact paise matching pilot cases (Cow ₹59.50/L and Buffalo ₹90.00/L); unconfigured rates reject transactions with bilingual domain error; zero float drift (All criteria PASSED).
 
 ---
 
-### Stage 6: Morning/Evening Shift Management & Fast Milk Collection Entry
+### Stage 6: Morning/Evening Shift Management & Fast Milk Collection Entry *(NEXT ACTIVE STAGE)*
 - **Objective:** Implement formal shift sessions and the high-speed (<15s) keyboard-driven milk collection entry screen with duplicate delivery warnings, collision-safe receipt numbering, and immutable snapshots.
 - **Entry Requirements:** Stage 5 verified.
 - **Deliverables:**

@@ -40,7 +40,7 @@ export class AuthStateService {
       if (res.data.dairyProfile) {
         this.dairyProfile.set(res.data.dairyProfile);
         if (res.data.dairyProfile.defaultLanguage) {
-          this.i18n.setLanguage(res.data.dairyProfile.defaultLanguage);
+          this.i18n.setLanguage(res.data.dairyProfile.defaultLanguage as any);
         }
       }
       return res.data;

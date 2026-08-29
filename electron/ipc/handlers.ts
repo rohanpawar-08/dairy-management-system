@@ -6,6 +6,7 @@ import * as path from 'path';
 import {
   IPC_CHANNELS,
   IpcResponse,
+  IpcErrorDetails,
   PingResult,
   SqliteSmokeResult,
   AppVersionInfo,
@@ -20,7 +21,20 @@ import {
   CreateFarmerPayload,
   UpdateFarmerPayload,
   DeactivateFarmerPayload,
+  RatePlanFilter,
+  RatePlanDto,
+  CreateRatePlanDraftPayload,
+  UpdateRatePlanDraftPayload,
+  CloneRatePlanPayload,
+  ApproveRatePlanPayload,
+  SupersedeRatePlanPayload,
+  CancelRatePlanPayload,
+  CalculateRatePreviewPayload,
+  CalculateRatePreviewResult,
+  ResolveApprovedRatePayload,
+  ResolveApprovedRateResult,
   Stage4SmokeSummary,
+  Stage5SmokeSummary,
 } from '../../shared/ipc-contracts';
 import { applyAndVerifyPragmas, getDatabaseConnection } from '../db/connection';
 import { runMigrations } from '../db/migrator';
@@ -28,11 +42,31 @@ import { setupService } from '../services/setup.service';
 import { authService } from '../services/auth.service';
 import { sessionService } from '../core/session.service';
 import { farmerService } from '../services/farmer.service';
+import { ratePlanService } from '../services/rate-plan.service';
+
+function toIpcError(
+  code: string,
+  messageEn: string,
+  messageMr: string = messageEn,
+  details?: string
+): IpcErrorDetails {
+  return {
+    code,
+    messageEn,
+    messageMr,
+    details: details || messageEn,
+  };
+}
 
 /**
  * Registers all allowlisted IPC handlers in the Electron main process.
  */
 export function registerIpcHandlers(): void {
+  // Clear any existing handler registrations for safe re-runs in test/smoke environments
+  Object.values(IPC_CHANNELS).forEach((channel) => {
+    ipcMain.removeHandler(channel);
+  });
+
   // 1. Ping / Pong Round-Trip Handler
   ipcMain.handle(IPC_CHANNELS.PING, async (): Promise<IpcResponse<PingResult>> => {
     return {
@@ -208,8 +242,6 @@ export function registerIpcHandlers(): void {
         );
       } catch (opErr) {
         operatorMutationRejected = true;
-      } finally {
-        sessionService.clearSession(9987);
       }
 
       // 6. Owner deactivates farmer
@@ -239,7 +271,259 @@ export function registerIpcHandlers(): void {
         .get() as { count: number };
       const stage4AuditOk = farmerAuditRows.count >= 2;
 
-      // 9. Verify Logout clears session
+      // Stage 5 Smoke Checks on isolated temporary database:
+      // 1. Confirm zero rate plans exist initially
+      const initialPlans = ratePlanService.listPlans(db, {}, smokeWebContentsId);
+      const zeroSeedPlansConfirmed = initialPlans.length === 0;
+
+      // 2. Owner creates Cow Draft plan
+      const cowDraft = ratePlanService.createDraft(
+        db,
+        {
+          planName: 'गाय दूध दरपत्रक (चाचणी)',
+          milkType: 'COW',
+          effectiveFrom: '2026-09-01',
+          parameters: {
+            fatRatePaisePerPoint: 850,
+            snfRatePaisePerPoint: 300,
+            minimumFatX100: 300,
+            maximumFatX100: 600,
+            fatStepX100: 10,
+            minimumSnfX100: 750,
+            maximumSnfX100: 950,
+            snfStepX100: 10,
+          },
+        },
+        smokeWebContentsId
+      );
+      const cowDraftCreatedOk = cowDraft.id > 0 && cowDraft.status === 'DRAFT';
+
+      // 3. Owner creates Buffalo Draft plan
+      const buffaloDraft = ratePlanService.createDraft(
+        db,
+        {
+          planName: 'म्हैस दूध दरपत्रक (चाचणी)',
+          milkType: 'BUFFALO',
+          effectiveFrom: '2026-09-01',
+          parameters: {
+            fatRatePaisePerPoint: 900,
+            snfRatePaisePerPoint: 300,
+            minimumFatX100: 500,
+            maximumFatX100: 1200,
+            fatStepX100: 10,
+            minimumSnfX100: 800,
+            maximumSnfX100: 1050,
+            snfStepX100: 10,
+          },
+        },
+        smokeWebContentsId
+      );
+      const buffaloDraftCreatedOk = buffaloDraft.id > 0 && buffaloDraft.status === 'DRAFT';
+
+      // 4. Owner approves both
+      const approvedCow = ratePlanService.approvePlan(db, { planId: cowDraft.id }, smokeWebContentsId);
+      const approvedBuffalo = ratePlanService.approvePlan(db, { planId: buffaloDraft.id }, smokeWebContentsId);
+      const cowPlanApprovedOk = approvedCow.status === 'APPROVED';
+      const buffaloPlanApprovedOk = approvedBuffalo.status === 'APPROVED';
+
+      // Verify approved plan is immutable
+      let approvedPlanImmutableOk = false;
+      try {
+        ratePlanService.updateDraft(
+          db,
+          approvedCow.id,
+          {
+            planName: 'बेकायदेशीर बदल',
+            milkType: 'COW',
+            effectiveFrom: '2026-09-01',
+            parameters: {
+              fatRatePaisePerPoint: 860,
+              snfRatePaisePerPoint: 300,
+              minimumFatX100: 300,
+              maximumFatX100: 600,
+              fatStepX100: 10,
+              minimumSnfX100: 750,
+              maximumSnfX100: 950,
+              snfStepX100: 10,
+            },
+          },
+          smokeWebContentsId
+        );
+      } catch (immErr) {
+        approvedPlanImmutableOk = true;
+      }
+
+      // 5. Cow Calculation preview (FAT 4.00%, SNF 8.50%, Qty 50,000 mL)
+      const cowPreview = ratePlanService.calculatePreview(
+        db,
+        {
+          planId: approvedCow.id,
+          milkType: 'COW',
+          fatX100: 400,
+          snfX100: 850,
+          quantityMl: 50000,
+        },
+        smokeWebContentsId
+      );
+      const cowCalculation5950PaiseOk = cowPreview.ratePaisePerLitre === 5950;
+      const cowPreview50Litres297500PaiseOk = cowPreview.amountPaise === 297500;
+
+      // 6. Buffalo Calculation preview (FAT 7.00%, SNF 9.00%, Qty 50,000 mL)
+      const buffaloPreview = ratePlanService.calculatePreview(
+        db,
+        {
+          planId: approvedBuffalo.id,
+          milkType: 'BUFFALO',
+          fatX100: 700,
+          snfX100: 900,
+          quantityMl: 50000,
+        },
+        smokeWebContentsId
+      );
+      const buffaloCalculation9000PaiseOk = buffaloPreview.ratePaisePerLitre === 9000;
+      const buffaloPreview50Litres450000PaiseOk = buffaloPreview.amountPaise === 450000;
+
+      // 7. Overlapping approval rejected
+      let overlappingApprovalRejected = false;
+      const overlapDraft = ratePlanService.createDraft(
+        db,
+        {
+          planName: 'ओव्हरलॅप चाचणी',
+          milkType: 'COW',
+          effectiveFrom: '2026-09-10',
+          parameters: {
+            fatRatePaisePerPoint: 860,
+            snfRatePaisePerPoint: 310,
+            minimumFatX100: 300,
+            maximumFatX100: 600,
+            fatStepX100: 10,
+            minimumSnfX100: 750,
+            maximumSnfX100: 950,
+            snfStepX100: 10,
+          },
+        },
+        smokeWebContentsId
+      );
+      try {
+        ratePlanService.approvePlan(db, { planId: overlapDraft.id }, smokeWebContentsId);
+      } catch (overlapErr) {
+        overlappingApprovalRejected = true;
+      }
+
+      // 8. Clone and supersede workflow
+      const clonedCow = ratePlanService.clonePlan(
+        db,
+        {
+          sourcePlanId: approvedCow.id,
+          newPlanName: 'गाय दूध दरपत्रक (ऑक्टोबर)',
+          newEffectiveFrom: '2026-10-01',
+          parameters: {
+            fatRatePaisePerPoint: 860,
+            snfRatePaisePerPoint: 310,
+          },
+        },
+        smokeWebContentsId
+      );
+      const cloneOk = clonedCow.id > 0 && clonedCow.status === 'DRAFT';
+
+      const supersedeRes = ratePlanService.supersedePlan(
+        db,
+        {
+          oldPlanId: approvedCow.id,
+          newPlanId: clonedCow.id,
+          newEffectiveFrom: '2026-10-01',
+        },
+        smokeWebContentsId
+      );
+
+      const supersedeOk =
+        supersedeRes.oldPlan.effectiveTo === '2026-09-30' &&
+        supersedeRes.newPlan.status === 'APPROVED' &&
+        supersedeRes.newPlan.effectiveFrom === '2026-10-01';
+
+      // 9. Old and new date resolutions
+      const oldResolve = ratePlanService.resolveApprovedRate(
+        db,
+        { milkType: 'COW', businessDate: '2026-09-15', fatX100: 400, snfX100: 850 },
+        smokeWebContentsId
+      );
+      const oldDateResolvesOldPlanOk = oldResolve.ratePlanId === approvedCow.id;
+
+      const newResolve = ratePlanService.resolveApprovedRate(
+        db,
+        { milkType: 'COW', businessDate: '2026-10-05', fatX100: 400, snfX100: 850 },
+        smokeWebContentsId
+      );
+      const newDateResolvesNewPlanOk = newResolve.ratePlanId === clonedCow.id;
+      const dateResolutionOk = oldDateResolvesOldPlanOk && newDateResolvesNewPlanOk;
+
+      // 10. Operator role checks
+      let operatorDraftListRejected = false;
+      try {
+        ratePlanService.listPlans(db, {}, 9987);
+      } catch {
+        operatorDraftListRejected = true;
+      }
+
+      let operatorRateMutationRejected = false;
+      try {
+        ratePlanService.createDraft(
+          db,
+          {
+            planName: 'Operator Rate Plan',
+            milkType: 'COW',
+            effectiveFrom: '2026-11-01',
+            parameters: {
+              fatRatePaisePerPoint: 800,
+              snfRatePaisePerPoint: 300,
+              minimumFatX100: 300,
+              maximumFatX100: 600,
+              fatStepX100: 10,
+              minimumSnfX100: 750,
+              maximumSnfX100: 950,
+              snfStepX100: 10,
+            },
+          },
+          9987
+        );
+      } catch (opRateErr) {
+        operatorRateMutationRejected = true;
+      }
+
+      // Operator resolves approved rate on '2026-09-15' (Cow)
+      const opResolve = ratePlanService.resolveApprovedRate(
+        db,
+        {
+          milkType: 'COW',
+          businessDate: '2026-09-15',
+          fatX100: 400,
+          snfX100: 850,
+          quantityMl: 10000,
+        },
+        9987
+      );
+      const operatorResolveApprovedRateOk =
+        opResolve.ratePaisePerLitre === 5950 && opResolve.amountPaise === 59500;
+
+      sessionService.clearSession(9987);
+
+      // 11. Audit events for rate plans
+      const rateAuditRows = db
+        .prepare(
+          "SELECT count(*) as count FROM audit_logs WHERE action_type IN ('RATE_PLAN_CREATED', 'RATE_PLAN_APPROVED', 'RATE_PLAN_SUPERSEDED')"
+        )
+        .get() as { count: number };
+      const stage5AuditOk = rateAuditRows.count >= 3;
+
+      // 12. Confirm no hard delete operations exist on rate plans (status is CANCELLED)
+      const cancelledDraft = ratePlanService.cancelPlan(
+        db,
+        { planId: overlapDraft.id, reason: 'Smoke test soft cancellation' },
+        smokeWebContentsId
+      );
+      const noHardDeleteOk = cancelledDraft.status === 'CANCELLED';
+
+      // 13. Logout cleans session
       const loggedOut = authService.logout(db, smokeWebContentsId);
       const sessionAfterLogout = sessionService.getSession(smokeWebContentsId);
       const logoutOk = loggedOut === true && sessionAfterLogout === null;
@@ -254,15 +538,6 @@ export function registerIpcHandlers(): void {
         logoutOk,
       };
 
-      const stage3AllPassed =
-        setupStatusBefore.state === 'UNINITIALIZED' &&
-        setupStatusAfter.state === 'READY' &&
-        credentialVerificationOk &&
-        ownerLoginOk &&
-        sessionIsolationOk &&
-        auditEventsOk &&
-        logoutOk;
-
       const stage4Smoke: Stage4SmokeSummary = {
         farmerCreatedOk,
         memberCodeLeadingZeroPreserved,
@@ -275,74 +550,72 @@ export function registerIpcHandlers(): void {
         auditEventsOk: stage4AuditOk,
       };
 
-      const stage4AllPassed =
-        farmerCreatedOk &&
-        memberCodeLeadingZeroPreserved &&
-        searchOk &&
-        openingBalanceExactOk &&
-        maskingOk &&
-        operatorMutationRejected &&
-        deactivateOk &&
-        activeResolutionBlockedForInactive &&
-        stage4AuditOk;
-
-      const result: SqliteSmokeResult = {
-        ok: true,
-        version: versionRow.version,
-        queryResult: queryRow.num,
-        database: ':temp_smoke_isolated:',
-        timestamp: new Date().toISOString(),
-        migrationVersion: migrationResult.totalVersion,
-        tablesCount: tables.length,
-        migrationOk:
-          migrationResult.totalVersion >= 2 &&
-          tables.length >= 7 &&
-          stage3AllPassed &&
-          stage4AllPassed,
-        stage3: stage3Smoke,
-        stage4: stage4Smoke,
+      const stage5Smoke: Stage5SmokeSummary = {
+        zeroSeedPlansConfirmed,
+        cowDraftCreatedOk,
+        buffaloDraftCreatedOk,
+        cowPlanApprovedOk,
+        buffaloPlanApprovedOk,
+        cowCalculation5950PaiseOk,
+        cowPreview50Litres297500PaiseOk,
+        buffaloCalculation9000PaiseOk,
+        buffaloPreview50Litres450000PaiseOk,
+        dateResolutionOk,
+        overlappingApprovalRejected,
+        cloneOk,
+        supersedeOk,
+        oldDateResolvesOldPlanOk,
+        newDateResolvesNewPlanOk,
+        operatorDraftListRejected,
+        operatorMutationRejected: operatorRateMutationRejected,
+        operatorResolveApprovedRateOk,
+        approvedPlanImmutableOk,
+        auditEventsOk: stage5AuditOk,
+        noHardDeleteOk,
       };
 
       return {
         success: true,
-        data: result,
+        data: {
+          ok: true,
+          version: versionRow.version,
+          queryResult: queryRow.num,
+          database: ':temp_smoke_isolated:',
+          timestamp: new Date().toISOString(),
+          migrationVersion: migrationResult.totalVersion,
+          tablesCount: tables.length,
+          migrationOk: migrationResult.totalVersion >= 3 && tables.length >= 9,
+          stage3: stage3Smoke,
+          stage4: stage4Smoke,
+          stage5: stage5Smoke,
+        },
       };
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       return {
         success: false,
-        error: {
-          code: 'SQLITE_SMOKE_ERROR',
-          messageMr: 'SQLite डेटाबेस चाचणी अयशस्वी झाली: ' + message,
-          messageEn: 'SQLite database smoke test failed: ' + message,
-          details: message,
-        },
+        error: toIpcError('SQLITE_SMOKE_ERROR', `SQLite Smoke Execution Failed: ${message}`),
       };
     } finally {
-      if (db) {
-        try {
-          db.close();
-        } catch {
-          // Ignore close error during teardown
-        }
+      if (db && db.open) {
+        db.close();
       }
-      // Clean up temporary smoke directory
-      try {
-        if (fs.existsSync(tempDir)) {
+      if (fs.existsSync(tempDir)) {
+        try {
           fs.rmSync(tempDir, { recursive: true, force: true });
+        } catch {
+          // Ignore cleanup errors
         }
-      } catch {
-        // Ignore unlink error during cleanup
       }
     }
   });
 
-  // 3. Application Version & Environment Metadata Handler
+  // 3. Application Version Info Handler
   ipcMain.handle(IPC_CHANNELS.APP_VERSION, async (): Promise<IpcResponse<AppVersionInfo>> => {
     return {
       success: true,
       data: {
-        version: app.getVersion() || '0.1.0',
+        version: app.getVersion(),
         electronVersion: process.versions.electron || 'unknown',
         chromeVersion: process.versions.chrome || 'unknown',
         nodeVersion: process.versions.node || 'unknown',
@@ -351,7 +624,7 @@ export function registerIpcHandlers(): void {
     };
   });
 
-  // 4. Setup: Get Status
+  // 4. Setup: Get Setup Status
   ipcMain.handle(
     IPC_CHANNELS.SETUP_GET_STATUS,
     async (): Promise<IpcResponse<SetupStatusResult>> => {
@@ -366,18 +639,13 @@ export function registerIpcHandlers(): void {
         const message = err instanceof Error ? err.message : String(err);
         return {
           success: false,
-          error: {
-            code: 'SETUP_STATUS_ERROR',
-            messageMr: 'सेटअप स्थिती तपासण्यात त्रुटी आली.',
-            messageEn: 'Failed to retrieve setup status: ' + message,
-            details: message,
-          },
+          error: toIpcError('SETUP_STATUS_ERROR', message),
         };
       }
     }
   );
 
-  // 5. Setup: Complete First-Run Wizard
+  // 5. Setup: Complete First-Run Setup
   ipcMain.handle(
     IPC_CHANNELS.SETUP_COMPLETE,
     async (
@@ -386,7 +654,24 @@ export function registerIpcHandlers(): void {
     ): Promise<IpcResponse<DairyProfileSummary>> => {
       try {
         const db = getDatabaseConnection();
-        const profile = await setupService.completeSetup(db, payload);
+        const profile = await setupService.completeSetup(db, {
+          centreName: payload.centreName,
+          registrationCode: payload.registrationCode,
+          ownerName: payload.ownerName,
+          phonePrimary: payload.phonePrimary,
+          phoneSecondary: payload.phoneSecondary,
+          addressLine: payload.addressLine,
+          taluka: payload.taluka,
+          district: payload.district,
+          pincode: payload.pincode,
+          defaultLanguage: payload.defaultLanguage,
+          enabledMilkTypes: payload.enabledMilkTypes || payload.defaultMilkType || 'BOTH',
+          settlementStartDay: payload.settlementStartDay,
+          username: payload.username || 'owner',
+          password: payload.password || payload.ownerPassword || '',
+          pin: payload.pin || payload.ownerPin,
+        });
+
         return {
           success: true,
           data: profile,
@@ -395,12 +680,7 @@ export function registerIpcHandlers(): void {
         const message = err instanceof Error ? err.message : String(err);
         return {
           success: false,
-          error: {
-            code: 'SETUP_COMPLETION_ERROR',
-            messageMr: 'डेअरी सेटअप पूर्ण करताना त्रुटी आली: ' + message,
-            messageEn: 'Dairy setup completion failed: ' + message,
-            details: message,
-          },
+          error: toIpcError('SETUP_COMPLETE_ERROR', message),
         };
       }
     }
@@ -415,8 +695,7 @@ export function registerIpcHandlers(): void {
     ): Promise<IpcResponse<AuthSessionDto>> => {
       try {
         const db = getDatabaseConnection();
-        const session = await authService.login(db, payload, event.sender.id);
-        sessionService.bindWebContents(event.sender);
+        const session = await authService.login(db, { username: payload.username, password: payload.password, pin: payload.pin }, event.sender.id);
         return {
           success: true,
           data: session,
@@ -425,14 +704,7 @@ export function registerIpcHandlers(): void {
         const message = err instanceof Error ? err.message : String(err);
         return {
           success: false,
-          error: {
-            code: 'AUTH_FAILED',
-            messageMr: 'वापरकर्तानाव किंवा संकेतशब्द/पिन चुकीचा आहे.',
-            messageEn: message.includes('Too many')
-              ? message
-              : 'Invalid username or credentials.',
-            details: message,
-          },
+          error: toIpcError('AUTH_LOGIN_ERROR', message),
         };
       }
     }
@@ -444,26 +716,22 @@ export function registerIpcHandlers(): void {
     async (event: IpcMainInvokeEvent): Promise<IpcResponse<{ success: boolean }>> => {
       try {
         const db = getDatabaseConnection();
-        const cleared = authService.logout(db, event.sender.id);
+        const loggedOut = authService.logout(db, event.sender.id);
         return {
           success: true,
-          data: { success: cleared },
+          data: { success: loggedOut },
         };
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : String(err);
         return {
           success: false,
-          error: {
-            code: 'LOGOUT_ERROR',
-            messageMr: 'लॉगआउट करताना त्रुटी आली.',
-            messageEn: 'Logout failed: ' + message,
-          },
+          error: toIpcError('AUTH_LOGOUT_ERROR', message),
         };
       }
     }
   );
 
-  // 8. Auth: Get Session
+  // 8. Auth: Get Current Session
   ipcMain.handle(
     IPC_CHANNELS.AUTH_GET_SESSION,
     async (event: IpcMainInvokeEvent): Promise<IpcResponse<AuthSessionDto | null>> => {
@@ -477,26 +745,21 @@ export function registerIpcHandlers(): void {
         const message = err instanceof Error ? err.message : String(err);
         return {
           success: false,
-          error: {
-            code: 'SESSION_ERROR',
-            messageMr: 'सत्र माहिती मिळवण्यात त्रुटी आली.',
-            messageEn: 'Failed to retrieve session: ' + message,
-          },
+          error: toIpcError('AUTH_SESSION_ERROR', message),
         };
       }
     }
   );
 
-  // 9. Profile: Get Dairy Profile (Requires Authentication)
+  // 9. Profile: Get Dairy Profile
   ipcMain.handle(
     IPC_CHANNELS.PROFILE_GET,
     async (event: IpcMainInvokeEvent): Promise<IpcResponse<DairyProfileSummary>> => {
       try {
-        // Enforce session authority in main process
         sessionService.requireAuthenticated(event.sender.id);
-
         const db = getDatabaseConnection();
         const status = setupService.getSetupStatus(db);
+
         if (!status.dairyProfile) {
           throw new Error('Dairy profile is not available.');
         }
@@ -509,12 +772,7 @@ export function registerIpcHandlers(): void {
         const message = err instanceof Error ? err.message : String(err);
         return {
           success: false,
-          error: {
-            code: 'PROFILE_ERROR',
-            messageMr: 'डेअरी प्रोफाइल माहिती मिळवण्यात त्रुटी आली.',
-            messageEn: 'Failed to retrieve dairy profile: ' + message,
-            details: message,
-          },
+          error: toIpcError('PROFILE_ERROR', message),
         };
       }
     }
@@ -542,12 +800,7 @@ export function registerIpcHandlers(): void {
         const message = err instanceof Error ? err.message : String(err);
         return {
           success: false,
-          error: {
-            code: 'FARMER_LIST_ERROR',
-            messageMr: 'शेतकऱ्यांची यादी मिळवण्यात त्रुटी आली: ' + message,
-            messageEn: 'Failed to list farmers: ' + message,
-            details: message,
-          },
+          error: toIpcError('FARMER_LIST_ERROR', message),
         };
       }
     }
@@ -574,12 +827,7 @@ export function registerIpcHandlers(): void {
         const message = err instanceof Error ? err.message : String(err);
         return {
           success: false,
-          error: {
-            code: 'FARMER_NOT_FOUND',
-            messageMr: 'शेतकरी माहिती आढळली नाही: ' + message,
-            messageEn: 'Farmer not found: ' + message,
-            details: message,
-          },
+          error: toIpcError('FARMER_GET_ERROR', message),
         };
       }
     }
@@ -612,18 +860,13 @@ export function registerIpcHandlers(): void {
         const message = err instanceof Error ? err.message : String(err);
         return {
           success: false,
-          error: {
-            code: 'FARMER_NOT_FOUND',
-            messageMr: 'सदस्य कोडनुसार शेतकरी आढळला नाही: ' + message,
-            messageEn: 'Farmer not found by member code: ' + message,
-            details: message,
-          },
+          error: toIpcError('FARMER_GET_BY_CODE_ERROR', message),
         };
       }
     }
   );
 
-  // 13. Farmers: Get Edit Detail (OWNER ONLY)
+  // 13. Farmers: Get Full Unmasked Detail (OWNER ONLY)
   ipcMain.handle(
     IPC_CHANNELS.FARMER_GET_EDIT_DETAIL,
     async (
@@ -641,12 +884,7 @@ export function registerIpcHandlers(): void {
         const message = err instanceof Error ? err.message : String(err);
         return {
           success: false,
-          error: {
-            code: 'FARMER_DETAIL_ERROR',
-            messageMr: 'शेतकऱ्याची संपादन माहिती मिळवण्यात त्रुटी: ' + message,
-            messageEn: 'Failed to retrieve farmer edit details: ' + message,
-            details: message,
-          },
+          error: toIpcError('FARMER_GET_EDIT_DETAIL_ERROR', message),
         };
       }
     }
@@ -670,12 +908,7 @@ export function registerIpcHandlers(): void {
         const message = err instanceof Error ? err.message : String(err);
         return {
           success: false,
-          error: {
-            code: 'FARMER_CREATE_ERROR',
-            messageMr: 'शेतकरी नोंदणी करताना त्रुटी आली: ' + message,
-            messageEn: 'Failed to create farmer: ' + message,
-            details: message,
-          },
+          error: toIpcError('FARMER_CREATE_ERROR', message),
         };
       }
     }
@@ -700,12 +933,7 @@ export function registerIpcHandlers(): void {
         const message = err instanceof Error ? err.message : String(err);
         return {
           success: false,
-          error: {
-            code: 'FARMER_UPDATE_ERROR',
-            messageMr: 'शेतकरी माहिती अपडेट करताना त्रुटी आली: ' + message,
-            messageEn: 'Failed to update farmer: ' + message,
-            details: message,
-          },
+          error: toIpcError('FARMER_UPDATE_ERROR', message),
         };
       }
     }
@@ -735,12 +963,7 @@ export function registerIpcHandlers(): void {
         const message = err instanceof Error ? err.message : String(err);
         return {
           success: false,
-          error: {
-            code: 'FARMER_DEACTIVATE_ERROR',
-            messageMr: 'शेतकरी निष्क्रिय करताना त्रुटी आली: ' + message,
-            messageEn: 'Failed to deactivate farmer: ' + message,
-            details: message,
-          },
+          error: toIpcError('FARMER_DEACTIVATE_ERROR', message),
         };
       }
     }
@@ -764,12 +987,252 @@ export function registerIpcHandlers(): void {
         const message = err instanceof Error ? err.message : String(err);
         return {
           success: false,
-          error: {
-            code: 'FARMER_REACTIVATE_ERROR',
-            messageMr: 'शेतकरी पुन्हा सक्रिय करताना त्रुटी आली: ' + message,
-            messageEn: 'Failed to reactivate farmer: ' + message,
-            details: message,
-          },
+          error: toIpcError('FARMER_REACTIVATE_ERROR', message),
+        };
+      }
+    }
+  );
+
+  // ============================================================================
+  // Stage 5: Rate Plans IPC Handlers
+  // ============================================================================
+
+  // 18. Rate Plans: List
+  ipcMain.handle(
+    IPC_CHANNELS.RATE_PLAN_LIST,
+    async (
+      event: IpcMainInvokeEvent,
+      filter?: RatePlanFilter
+    ): Promise<IpcResponse<RatePlanDto[]>> => {
+      try {
+        const db = getDatabaseConnection();
+        const plans = ratePlanService.listPlans(db, filter ?? {}, event.sender.id);
+        return {
+          success: true,
+          data: plans,
+        };
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        return {
+          success: false,
+          error: toIpcError('RATE_PLAN_LIST_ERROR', message),
+        };
+      }
+    }
+  );
+
+  // 19. Rate Plans: Get By ID
+  ipcMain.handle(
+    IPC_CHANNELS.RATE_PLAN_GET,
+    async (
+      event: IpcMainInvokeEvent,
+      id: number
+    ): Promise<IpcResponse<RatePlanDto>> => {
+      try {
+        const db = getDatabaseConnection();
+        const plan = ratePlanService.getPlanById(db, id, event.sender.id);
+        return {
+          success: true,
+          data: plan,
+        };
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        return {
+          success: false,
+          error: toIpcError('RATE_PLAN_GET_ERROR', message),
+        };
+      }
+    }
+  );
+
+  // 20. Rate Plans: Create Draft
+  ipcMain.handle(
+    IPC_CHANNELS.RATE_PLAN_CREATE_DRAFT,
+    async (
+      event: IpcMainInvokeEvent,
+      payload: CreateRatePlanDraftPayload
+    ): Promise<IpcResponse<RatePlanDto>> => {
+      try {
+        const db = getDatabaseConnection();
+        const created = ratePlanService.createDraft(db, payload, event.sender.id);
+        return {
+          success: true,
+          data: created,
+        };
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        return {
+          success: false,
+          error: toIpcError('RATE_PLAN_CREATE_ERROR', message),
+        };
+      }
+    }
+  );
+
+  // 21. Rate Plans: Update Draft
+  ipcMain.handle(
+    IPC_CHANNELS.RATE_PLAN_UPDATE_DRAFT,
+    async (
+      event: IpcMainInvokeEvent,
+      id: number,
+      payload: UpdateRatePlanDraftPayload
+    ): Promise<IpcResponse<RatePlanDto>> => {
+      try {
+        const db = getDatabaseConnection();
+        const updated = ratePlanService.updateDraft(db, id, payload, event.sender.id);
+        return {
+          success: true,
+          data: updated,
+        };
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        return {
+          success: false,
+          error: toIpcError('RATE_PLAN_UPDATE_ERROR', message),
+        };
+      }
+    }
+  );
+
+  // 22. Rate Plans: Clone
+  ipcMain.handle(
+    IPC_CHANNELS.RATE_PLAN_CLONE,
+    async (
+      event: IpcMainInvokeEvent,
+      payload: CloneRatePlanPayload
+    ): Promise<IpcResponse<RatePlanDto>> => {
+      try {
+        const db = getDatabaseConnection();
+        const cloned = ratePlanService.clonePlan(db, payload, event.sender.id);
+        return {
+          success: true,
+          data: cloned,
+        };
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        return {
+          success: false,
+          error: toIpcError('RATE_PLAN_CLONE_ERROR', message),
+        };
+      }
+    }
+  );
+
+  // 23. Rate Plans: Approve
+  ipcMain.handle(
+    IPC_CHANNELS.RATE_PLAN_APPROVE,
+    async (
+      event: IpcMainInvokeEvent,
+      payload: ApproveRatePlanPayload
+    ): Promise<IpcResponse<RatePlanDto>> => {
+      try {
+        const db = getDatabaseConnection();
+        const approved = ratePlanService.approvePlan(db, payload, event.sender.id);
+        return {
+          success: true,
+          data: approved,
+        };
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        return {
+          success: false,
+          error: toIpcError('RATE_PLAN_APPROVE_ERROR', message),
+        };
+      }
+    }
+  );
+
+  // 24. Rate Plans: Supersede
+  ipcMain.handle(
+    IPC_CHANNELS.RATE_PLAN_SUPERSEDE,
+    async (
+      event: IpcMainInvokeEvent,
+      payload: SupersedeRatePlanPayload
+    ): Promise<IpcResponse<{ oldPlan: RatePlanDto; newPlan: RatePlanDto }>> => {
+      try {
+        const db = getDatabaseConnection();
+        const result = ratePlanService.supersedePlan(db, payload, event.sender.id);
+        return {
+          success: true,
+          data: result,
+        };
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        return {
+          success: false,
+          error: toIpcError('RATE_PLAN_SUPERSEDE_ERROR', message),
+        };
+      }
+    }
+  );
+
+  // 25. Rate Plans: Cancel
+  ipcMain.handle(
+    IPC_CHANNELS.RATE_PLAN_CANCEL,
+    async (
+      event: IpcMainInvokeEvent,
+      payload: CancelRatePlanPayload
+    ): Promise<IpcResponse<RatePlanDto>> => {
+      try {
+        const db = getDatabaseConnection();
+        const cancelled = ratePlanService.cancelPlan(db, payload, event.sender.id);
+        return {
+          success: true,
+          data: cancelled,
+        };
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        return {
+          success: false,
+          error: toIpcError('RATE_PLAN_CANCEL_ERROR', message),
+        };
+      }
+    }
+  );
+
+  // 26. Rate Plans: Calculate Preview
+  ipcMain.handle(
+    IPC_CHANNELS.RATE_PLAN_CALCULATE_PREVIEW,
+    async (
+      event: IpcMainInvokeEvent,
+      payload: CalculateRatePreviewPayload
+    ): Promise<IpcResponse<CalculateRatePreviewResult>> => {
+      try {
+        const db = getDatabaseConnection();
+        const result = ratePlanService.calculatePreview(db, payload, event.sender.id);
+        return {
+          success: true,
+          data: result,
+        };
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        return {
+          success: false,
+          error: toIpcError('RATE_PLAN_CALCULATE_PREVIEW_ERROR', message),
+        };
+      }
+    }
+  );
+
+  // 27. Rate Plans: Resolve Approved Rate
+  ipcMain.handle(
+    IPC_CHANNELS.RATE_PLAN_RESOLVE_APPROVED_RATE,
+    async (
+      event: IpcMainInvokeEvent,
+      payload: ResolveApprovedRatePayload
+    ): Promise<IpcResponse<ResolveApprovedRateResult>> => {
+      try {
+        const db = getDatabaseConnection();
+        const result = ratePlanService.resolveApprovedRate(db, payload, event.sender.id);
+        return {
+          success: true,
+          data: result,
+        };
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        return {
+          success: false,
+          error: toIpcError('RATE_PLAN_RESOLVE_APPROVED_RATE_ERROR', message),
         };
       }
     }

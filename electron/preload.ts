@@ -16,6 +16,17 @@ import type {
   CreateFarmerPayload,
   UpdateFarmerPayload,
   DeactivateFarmerPayload,
+  RatePlanFilter,
+  RatePlanDto,
+  CreateRatePlanDraftPayload,
+  UpdateRatePlanDraftPayload,
+  CloneRatePlanPayload,
+  SupersedeRatePlanPayload,
+  CancelRatePlanPayload,
+  CalculateRatePreviewPayload,
+  CalculateRatePreviewResult,
+  ResolveApprovedRatePayload,
+  ResolveApprovedRateResult,
 } from '../shared/ipc-contracts';
 
 // Inlined channel constants so preload is completely self-contained in sandboxed renderer
@@ -38,6 +49,17 @@ const CHANNELS = {
   FARMER_UPDATE: 'dairy:farmer:update',
   FARMER_DEACTIVATE: 'dairy:farmer:deactivate',
   FARMER_REACTIVATE: 'dairy:farmer:reactivate',
+  // Stage 5 Rate Plan Channels
+  RATE_PLAN_LIST: 'dairy:rate-plan:list',
+  RATE_PLAN_GET: 'dairy:rate-plan:get',
+  RATE_PLAN_CREATE_DRAFT: 'dairy:rate-plan:create-draft',
+  RATE_PLAN_UPDATE_DRAFT: 'dairy:rate-plan:update-draft',
+  RATE_PLAN_CLONE: 'dairy:rate-plan:clone',
+  RATE_PLAN_APPROVE: 'dairy:rate-plan:approve',
+  RATE_PLAN_SUPERSEDE: 'dairy:rate-plan:supersede',
+  RATE_PLAN_CANCEL: 'dairy:rate-plan:cancel',
+  RATE_PLAN_CALCULATE_PREVIEW: 'dairy:rate-plan:calculate-preview',
+  RATE_PLAN_RESOLVE_APPROVED_RATE: 'dairy:rate-plan:resolve-approved-rate',
 } as const;
 
 /**
@@ -106,10 +128,7 @@ const dairyApi: DairyApiBridge = {
       return ipcRenderer.invoke(CHANNELS.FARMER_UPDATE, id, payload);
     },
 
-    deactivate: (
-      id: number,
-      payload?: DeactivateFarmerPayload
-    ): Promise<IpcResponse<FarmerListDto>> => {
+    deactivate: (id: number, payload?: DeactivateFarmerPayload): Promise<IpcResponse<FarmerListDto>> => {
       return ipcRenderer.invoke(CHANNELS.FARMER_DEACTIVATE, id, payload);
     },
 
@@ -117,7 +136,54 @@ const dairyApi: DairyApiBridge = {
       return ipcRenderer.invoke(CHANNELS.FARMER_REACTIVATE, id);
     },
   },
+
+  ratePlans: {
+    list: (filter?: RatePlanFilter): Promise<IpcResponse<RatePlanDto[]>> => {
+      return ipcRenderer.invoke(CHANNELS.RATE_PLAN_LIST, filter);
+    },
+
+    getById: (id: number): Promise<IpcResponse<RatePlanDto>> => {
+      return ipcRenderer.invoke(CHANNELS.RATE_PLAN_GET, id);
+    },
+
+    createDraft: (payload: CreateRatePlanDraftPayload): Promise<IpcResponse<RatePlanDto>> => {
+      return ipcRenderer.invoke(CHANNELS.RATE_PLAN_CREATE_DRAFT, payload);
+    },
+
+    updateDraft: (id: number, payload: UpdateRatePlanDraftPayload): Promise<IpcResponse<RatePlanDto>> => {
+      return ipcRenderer.invoke(CHANNELS.RATE_PLAN_UPDATE_DRAFT, id, payload);
+    },
+
+    clone: (payload: CloneRatePlanPayload): Promise<IpcResponse<RatePlanDto>> => {
+      return ipcRenderer.invoke(CHANNELS.RATE_PLAN_CLONE, payload);
+    },
+
+    approve: (id: number): Promise<IpcResponse<RatePlanDto>> => {
+      return ipcRenderer.invoke(CHANNELS.RATE_PLAN_APPROVE, { planId: id });
+    },
+
+    supersede: (payload: SupersedeRatePlanPayload): Promise<IpcResponse<{ oldPlan: RatePlanDto; newPlan: RatePlanDto }>> => {
+      return ipcRenderer.invoke(CHANNELS.RATE_PLAN_SUPERSEDE, payload);
+    },
+
+    cancel: (id: number, payload: CancelRatePlanPayload): Promise<IpcResponse<RatePlanDto>> => {
+      return ipcRenderer.invoke(CHANNELS.RATE_PLAN_CANCEL, { planId: id, reason: payload.reason });
+    },
+
+    calculatePreview: (payload: CalculateRatePreviewPayload): Promise<IpcResponse<CalculateRatePreviewResult>> => {
+      return ipcRenderer.invoke(CHANNELS.RATE_PLAN_CALCULATE_PREVIEW, payload);
+    },
+
+    resolveApprovedRate: (payload: ResolveApprovedRatePayload): Promise<IpcResponse<ResolveApprovedRateResult>> => {
+      return ipcRenderer.invoke(CHANNELS.RATE_PLAN_RESOLVE_APPROVED_RATE, payload);
+    },
+  },
 };
 
-// Safely expose `dairyApi` to renderer context
-contextBridge.exposeInMainWorld('dairyApi', dairyApi);
+// Expose safe API to the renderer process
+try {
+  contextBridge.exposeInMainWorld('dairyApi', dairyApi);
+} catch (error) {
+  // Graceful fallback for non-isolated test environments
+  (window as unknown as { dairyApi: DairyApiBridge }).dairyApi = dairyApi;
+}

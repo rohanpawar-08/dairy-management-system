@@ -18,7 +18,17 @@
     "loading": "कृपया प्रतीक्षा करा...",
     "required": "हे फील्ड आवश्यक आहे",
     "role_owner": "मालक (Owner)",
-    "role_operator": "ऑपरेटर (Operator)"
+    "role_operator": "ऑपरेटर (Operator)",
+    "optional": "ऐच्छिक",
+    "all": "सर्व",
+    "status": "स्थिती",
+    "actions": "कृती"
+  },
+  "milk": {
+    "cow": "गाय दूध",
+    "buffalo": "म्हैस दूध",
+    "both": "गाय आणि म्हैस दोन्ही",
+    "all": "सर्व दूध प्रकार"
   },
   "setup": {
     "title": "डेअरी प्रथम-वेळ सेटअप",
@@ -85,8 +95,8 @@
     "logged_in_as": "सध्याचे वापरकर्ता",
     "dairy_info": "डेअरी माहिती",
     "future_modules_note": "ही स्टेज ३ प्रमाणित सुरक्षा रचना आहे. शेतकरी नोंदणी, दरपत्रक, दूध संकलन, हिशोब आणि अहवाल पुढील टप्प्यांमध्ये जोडले जातील.",
-    "active_stage_title": "सध्याचा टप्पा (Active Stage 4)",
-    "stage4_note": "शेतकरी व्यवस्थापन व खाते सुरुवातीची शिल्लक मॉड्यूल सक्रिय आहे. दरपत्रक, दूध संकलन, हिशोब आणि अहवाल पुढील टप्प्यांमध्ये जोडले जातील."
+    "active_stage_title": "सध्याचा टप्पा (Active Stage 5)",
+    "stage4_note": "शेतकरी व्यवस्थापन व दरपत्रक मॉड्यूल सक्रिय आहे. दूध संकलन, हिशोब आणि अहवाल पुढील टप्प्यांमध्ये जोडले जातील."
   },
   "farmers": {
     "title": "शेतकरी / सभासद व्यवस्थापन",
@@ -155,6 +165,87 @@
     "deactivate_reason_placeholder": "उदा. दूध देणे बंद केले / गाव सोडले",
     "deactivate_button": "निष्क्रिय करा",
     "reactivate_button": "पुन्हा सक्रिय करा"
+  },
+  "rates": {
+    "title": "दरपत्रक व्यवस्थापन (Rate Plans)",
+    "subtitle": "गाय व म्हैस दूध खरेदी दर सूत्र, घटक आणि गुणवत्ता मर्यादा",
+    "module_description": "गाय व म्हैस दुधासाठी फॅट/एसएनएफ दर सूत्रे, घटक व गुणवत्ता मर्यादा ठरवा.",
+    "open_rate_plans": "दरपत्रक व्यवस्थापन उघडा",
+    "newRatePlan": "नवीन दरपत्रक मसुदा (Draft)",
+    "createDraft": "नवीन दरपत्रक तयार करा",
+    "editDraft": "दरपत्रक मसुदा संपादित करा",
+    "cloneTitle": "दरपत्रक प्रत (Clone Rate Plan)",
+    "sourcePlan": "मूळ दरपत्रक",
+    "newPlanName": "नवीन दरपत्रकाचे नाव",
+    "newEffectiveFrom": "नवीन लागू तारीख",
+    "cloneAndCreateDraft": "प्रत करून नवीन मसुदा तयार करा",
+    "approveTitle": "दरपत्रक मंजूर करा (Approve Plan)",
+    "immutabilityNotice": "एकदा मंजूर झाल्यानंतर दर घटकांमध्ये बदल करता येत नाही. जुने दूध संकलन व्यवहार सुरक्षित राहतात.",
+    "planName": "दरपत्रकाचे नाव",
+    "milkType": "दूध प्रकार",
+    "effectivePeriod": "लागू कालावधी",
+    "effectiveFrom": "लागू तारीख",
+    "effectiveTo": "समाप्ती तारीख",
+    "rateCoefficients": "दर सूत्र घटक (Rate Coefficients)",
+    "fatRateCoeff": "फॅट दर घटक",
+    "snfRateCoeff": "एसएनएफ दर घटक",
+    "qualityBounds": "गुणवत्ता मर्यादा व स्टेप (FAT/SNF Bounds)",
+    "minFat": "किमान फॅट",
+    "maxFat": "कमाल फॅट",
+    "fatStep": "फॅट स्टेप",
+    "minSnf": "किमान एसएनएफ",
+    "maxSnf": "कमाल एसएनएफ",
+    "snfStep": "एसएनएफ स्टेप",
+    "notes": "नोंदी / संदर्भ",
+    "generalInfo": "सर्वसाधारण माहिती",
+    "currentCowPlan": "सध्याचे सक्रिय गाय दरपत्रक",
+    "currentBuffaloPlan": "सध्याचे सक्रिय म्हैस दरपत्रक",
+    "noActiveCowPlan": "सध्या कोणतेही सक्रिय गाय दरपत्रक मंजूर नाही",
+    "noActiveBuffaloPlan": "सध्या कोणतेही सक्रिय म्हैस दरपत्रक मंजूर नाही",
+    "missingApprovedRatesTitle": "मंजूर दरपत्रक उपलब्ध नाही!",
+    "missingApprovedRatesDesc": "दूध संकलन सुरू करण्यासाठी गाय व म्हैस दुधासाठी सक्रिय मंजूर दरपत्रक असणे आवश्यक आहे.",
+    "simulatorTitle": "दर गणक व पूर्वदर्शन (Rate Simulator)",
+    "simulatorSubtitle": "गुणवत्ता टाकून थेट दर व रक्कम तपासा",
+    "litres": "लिटर (L)",
+    "calculateRate": "दर गणना करा",
+    "calculatedRate": "निश्चित झालेला दर",
+    "totalAmount": "एकूण रक्कम",
+    "filterByMilk": "दूध प्रकारानुसार",
+    "filterByStatus": "स्थितीनुसार",
+    "noPlansFound": "कोणतेही दरपत्रक आढळले नाही",
+    "approvePlan": "दरपत्रक मंजूर करा",
+    "approveAndSupersede": "मंजूर करा व जुने दरपत्रक बंद करा",
+    "supersedeAlertTitle": "पूर्वीचे मंजूर दरपत्रक आपोआप बंद होईल",
+    "supersedeAlertDesc": "नवीन दरपत्रक सुरू होण्याच्या आदल्या दिवशी पूर्वीचे मंजूर दरपत्रक बंद केले जाईल",
+    "cancelPlan": "दरपत्रक रद्द करा",
+    "cancelPlanTitle": "दरपत्रक रद्द करणे",
+    "cancelWarningText": "तुम्ही पुढील दरपत्रक रद्द करत आहात",
+    "cancellationReason": "रद्द करण्याचे कारण",
+    "confirmCancelPlan": "नक्की रद्द करा",
+    "clonePlan": "नवीन प्रत बनवा (Clone)",
+    "status": {
+      "APPROVED": "मंजूर (Approved)",
+      "DRAFT": "मसुदा (Draft)",
+      "CANCELLED": "रद्द (Cancelled)"
+    },
+    "lifecycle": {
+      "CURRENT": "सध्या सक्रिय (Current)",
+      "UPCOMING": "आगामी (Upcoming)",
+      "EXPIRED": "कालबाह्य (Expired)",
+      "DRAFT": "मसुदा (Draft)",
+      "CANCELLED": "रद्द (Cancelled)"
+    },
+    "validation": {
+      "nameRequired": "दरपत्रकाचे नाव आवश्यक आहे",
+      "dateRequired": "लागू तारीख आवश्यक आहे",
+      "fatCoeffRequired": "फॅट दर घटक आवश्यक आहे",
+      "snfCoeffRequired": "एसएनएफ दर घटक आवश्यक आहे",
+      "reasonRequired": "रद्द करण्याचे कारण आवश्यक आहे"
+    },
+    "hint": {
+      "fatCoeff": "प्रति फॅट टक्केवारीचा दर (उदा. 8.50)",
+      "snfCoeff": "प्रति एसएनएफ टक्केवारीचा दर (उदा. 3.00)"
+    }
   },
   "inconsistent": {
     "title": "डेटाबेस विसंगत स्थिती",

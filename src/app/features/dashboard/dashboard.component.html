@@ -74,8 +74,9 @@
       }
     </div>
 
-    <!-- Active Stage 4 Module: Farmers Directory -->
+    <!-- Modules Grid -->
     <div class="module-cards-grid">
+      <!-- Farmers Directory -->
       <mat-card class="module-card clickable" (click)="navigateToFarmers()">
         <div class="card-icon-box">
           <mat-icon>groups</mat-icon>
@@ -89,6 +90,23 @@
           </button>
         </div>
       </mat-card>
+
+      <!-- Rate Plans (Owner Only) -->
+      @if (authState.isOwner()) {
+        <mat-card class="module-card clickable" (click)="navigateToRatePlans()">
+          <div class="card-icon-box rates-icon">
+            <mat-icon>price_change</mat-icon>
+          </div>
+          <div class="card-content-box">
+            <h3>{{ 'rates.title' | translate }}</h3>
+            <p>{{ 'rates.module_description' | translate }}</p>
+            <button mat-flat-button color="primary" type="button">
+              <mat-icon>arrow_forward</mat-icon>
+              {{ 'rates.open_rate_plans' | translate }}
+            </button>
+          </div>
+        </mat-card>
+      }
     </div>
 
     <!-- Future Modules Notice Banner -->

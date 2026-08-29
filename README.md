@@ -21,8 +21,9 @@ The system digitizes and automates daily morning and evening milk collection, dy
 | **Stage 2: Database Layer & Migrations** | **Completed** | SQLite connection lifecycle (WAL, FULL synchronous, foreign keys), incremental migrations engine, Migration 001 foundation schema, and verified async backup service. |
 | **Stage 3: Auth, Session & Security** | **Completed** | First-run setup wizard, Scrypt salt+hash auth, PIN login, memory session authority, sliding-window rate limiting, and append-only audit logging. |
 | **Stage 4: Farmer Directory & Opening Balances** | **Completed** | Farmer registration, search, masked bank/UPI metadata, integer paise opening balances, soft deactivation, and balance locking. |
-| **Stage 5: Rate Plan Engine & Pricing Strategy** | **Next** | Pricing strategy engine (Cow/Buffalo), rate charts, integer rate arithmetic, and owner rate approvals. |
-| **Current Implementation State** | **Stage 4 Verified** | All 115 unit and integration tests passing (`npm test`, `test:farmers`, `test:auth`, `test:audit-base`, `test:db`, `test:backup-basic`, `test:ipc-smoke`, `build:smoke-pack`). |
+| **Stage 5: Owner-Controlled Rate Plans & Calculation Engine** | **Completed** | Cow/Buffalo formula pricing engine (`PER_PERCENT_POINT_PER_LITRE`), draft/approval lifecycle, duplicate overlap prevention, preview calculation, and Owner RBAC. |
+| **Stage 6: Morning/Evening Shift Management & Fast Collection Entry** | **Next** | Formal shift sessions, high-speed keyboard collection entry, duplicate delivery warnings, and immutable snapshots. |
+| **Current Implementation State** | **Stage 5 Verified** | All 155 unit and integration tests passing (`npm test`, `test:rates`, `test:farmers`, `test:auth`, `test:audit-base`, `test:db`, `test:backup-basic`, `test:ipc-smoke`, `build:smoke-pack`). |
 
 ---
 
@@ -43,8 +44,11 @@ npm install
 # Start Angular renderer and Electron in development mode
 npm run dev
 
-# Run full test suite (Angular component + backend unit + farmers + auth/audit + database + backup integration)
+# Run full test suite (Angular component + backend unit + rate plans + farmers + auth/audit + database + backup integration)
 npm test
+
+# Run Stage 5 Rate Plan engine, formula calculation, and pricing integration tests
+npm run test:rates
 
 # Run Stage 4 Farmer management, exact money arithmetic, PII masking & migration integration tests
 npm run test:farmers

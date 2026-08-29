@@ -1,0 +1,99 @@
+.rate-plan-dialog-container {
+  min-width: 580px;
+  max-width: 720px;
+  padding: 8px 4px;
+}
+
+.dialog-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 12px 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.dialog-error-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  margin-bottom: 14px;
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  color: #b91c1c;
+  font-size: 0.875rem;
+
+  mat-icon {
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+  }
+}
+
+.dialog-content {
+  padding-top: 8px;
+  max-height: 70vh;
+}
+
+.dialog-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.925rem;
+  font-weight: 600;
+  color: #475569;
+  margin-top: 8px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid #e2e8f0;
+
+  mat-icon {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+    color: #64748b;
+  }
+}
+
+.form-row {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+
+  &.three-cols {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 12px;
+  }
+
+  .flex-1 {
+    flex: 1;
+  }
+
+  .flex-2 {
+    flex: 2;
+  }
+}
+
+.full-width {
+  width: 100%;
+}
+
+.currency-prefix {
+  font-weight: 600;
+  color: #475569;
+}
+
+.dialog-actions {
+  padding: 16px 0 8px 0;
+  gap: 10px;
+}

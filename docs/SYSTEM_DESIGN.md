@@ -91,11 +91,13 @@ Floating-point representations (IEEE 754) produce compounding precision errors. 
 | **SNF Percentage** | Percent (%) | Scaled Integer ($\times 100$) | $1\% = 100\text{ units}$ | $8.5\% \rightarrow 850$ |
 | **Rate per Litre** | ₹ per Litre | Scaled Paise per Litre | Integer Paise | ₹38.50/L $\rightarrow$ `3850` |
 
-### 3.2 Calculation Formula & Rounding
-For a milk delivery of $Q_{\text{mL}}$ millilitres at an approved rate of $R_{\text{paise}}$ per litre:
-$$\text{Amount (Paise)} = \mathrm{round}\left(\frac{Q_{\text{mL}} \times R_{\text{paise}}}{1000}\right)$$
+### 3.2 Calculation Formula & Rounding (Confirmed Strategy: FORMULA)
+For a milk delivery of $Q_{\text{mL}}$ millilitres with quality parameters $\text{FAT}_{\text{x100}}$ and $\text{SNF}_{\text{x100}}$ under an approved formula plan:
+$$\text{rateNumerator} = (\text{FAT}_{\text{x100}} \times \text{fatRatePaisePerPoint}) + (\text{SNF}_{\text{x100}} \times \text{snfRatePaisePerPoint})$$
+$$R_{\text{paise}} = \text{ROUND\_HALF\_UP}\left(\frac{\text{rateNumerator}}{100}\right)$$
+$$\text{Amount (Paise)} = \text{ROUND\_HALF\_UP}\left(\frac{Q_{\text{mL}} \times R_{\text{paise}}}{1000}\right)$$
 
-*Provisional Rounding Rule:* The calculation engine eliminates binary floating-point drift while retaining an explicit business rounding step. It uses standard `ROUND_HALF_UP` per collection entry as the provisional default, awaiting real-world verification during pilot onboarding.
+*Rounding Rule:* The calculation engine eliminates binary floating-point drift using exact integer / BigInt arithmetic with `ROUND_HALF_UP` on both the rate per litre and final collection amount. All rates and amounts are stored as integer paise.
 
 ### 3.3 Explicit Financial Terminology
 - `INCREASE_PAYABLE`: Increases the net balance owed by the dairy to the farmer (e.g., active milk deliveries, bonuses, positive incentives).
@@ -186,37 +188,54 @@ CREATE INDEX IF NOT EXISTS idx_farmers_member_code ON farmers(member_code);
 CREATE INDEX IF NOT EXISTS idx_farmers_is_active ON farmers(is_active);
 
 -- ============================================================================
--- 5. Rate Plans & Pricing Versioning
+-- 5. Rate Plans & Lifecycle Versioning
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS rate_plans (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     plan_name TEXT NOT NULL,
     milk_type TEXT NOT NULL CHECK (milk_type IN ('COW', 'BUFFALO')),
-    strategy_type TEXT NOT NULL DEFAULT 'UNSPECIFIED' CHECK (strategy_type IN ('MATRIX', 'BAND', 'FORMULA', 'UNSPECIFIED')),
+    strategy_type TEXT NOT NULL DEFAULT 'FORMULA' CHECK (strategy_type = 'FORMULA'),
+    pricing_basis TEXT NOT NULL DEFAULT 'PER_PERCENT_POINT_PER_LITRE' CHECK (pricing_basis = 'PER_PERCENT_POINT_PER_LITRE'),
     effective_from TEXT NOT NULL, -- Business date YYYY-MM-DD
     effective_to TEXT,           -- Business date YYYY-MM-DD (NULL = currently active)
-    is_active INTEGER NOT NULL DEFAULT 1 CHECK (is_active IN (0, 1)),
+    status TEXT NOT NULL DEFAULT 'DRAFT' CHECK (status IN ('DRAFT', 'APPROVED', 'CANCELLED')),
+    rounding_mode TEXT NOT NULL DEFAULT 'ROUND_HALF_UP' CHECK (rounding_mode = 'ROUND_HALF_UP'),
     notes TEXT,
+    created_by_user_id INTEGER NOT NULL REFERENCES users(id),
+    approved_by_user_id INTEGER REFERENCES users(id),
+    approved_at TEXT,
+    cancelled_by_user_id INTEGER REFERENCES users(id),
+    cancelled_at TEXT,
+    cancellation_reason TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
     CHECK (effective_to IS NULL OR effective_to >= effective_from)
 );
 
-CREATE INDEX IF NOT EXISTS idx_rate_plans_lookup ON rate_plans(milk_type, is_active, effective_from, effective_to);
+CREATE INDEX IF NOT EXISTS idx_rate_plans_milk_type ON rate_plans(milk_type);
+CREATE INDEX IF NOT EXISTS idx_rate_plans_status ON rate_plans(status);
+CREATE INDEX IF NOT EXISTS idx_rate_plans_effective_dates ON rate_plans(effective_from, effective_to);
+CREATE INDEX IF NOT EXISTS idx_rate_plans_created_by ON rate_plans(created_by_user_id);
 
 -- ============================================================================
--- 6. Rate Chart Entries (Provisional exact-matrix schema example. Created in Stage 5.
---     Will be replaced or extended if confirmed pilot method uses bands or a formula.)
+-- 6. Rate Formula Parameters (Exact formula parameters per rate plan)
 -- ============================================================================
-CREATE TABLE IF NOT EXISTS rate_chart_entries (
+CREATE TABLE IF NOT EXISTS rate_formula_parameters (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    rate_plan_id INTEGER NOT NULL REFERENCES rate_plans(id),
-    fat_x100 INTEGER NOT NULL,       -- e.g., 4.2% -> 420
-    snf_x100 INTEGER NOT NULL,       -- e.g., 8.5% -> 850
-    rate_paise INTEGER NOT NULL,     -- e.g., ₹38.50/L -> 3850
-    UNIQUE(rate_plan_id, fat_x100, snf_x100)
+    rate_plan_id INTEGER UNIQUE NOT NULL REFERENCES rate_plans(id),
+    fat_rate_paise_per_point INTEGER NOT NULL CHECK (fat_rate_paise_per_point > 0),
+    snf_rate_paise_per_point INTEGER NOT NULL CHECK (snf_rate_paise_per_point > 0),
+    minimum_fat_x100 INTEGER NOT NULL CHECK (minimum_fat_x100 > 0),
+    maximum_fat_x100 INTEGER NOT NULL CHECK (maximum_fat_x100 >= minimum_fat_x100),
+    fat_step_x100 INTEGER NOT NULL DEFAULT 10 CHECK (fat_step_x100 > 0),
+    minimum_snf_x100 INTEGER NOT NULL CHECK (minimum_snf_x100 > 0),
+    maximum_snf_x100 INTEGER NOT NULL CHECK (maximum_snf_x100 >= minimum_snf_x100),
+    snf_step_x100 INTEGER NOT NULL DEFAULT 10 CHECK (snf_step_x100 > 0),
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
-CREATE INDEX IF NOT EXISTS idx_rate_chart_entries_lookup ON rate_chart_entries(rate_plan_id, fat_x100, snf_x100);
+CREATE INDEX IF NOT EXISTS idx_rate_params_plan_id ON rate_formula_parameters(rate_plan_id);
 
 -- ============================================================================
 -- 7. Shift Management Sessions

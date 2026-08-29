@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import {
   DairyApiBridge,
   IpcResponse,
+  IpcErrorDetails,
   PingResult,
   SqliteSmokeResult,
   AppVersionInfo,
@@ -16,7 +17,24 @@ import {
   CreateFarmerPayload,
   UpdateFarmerPayload,
   DeactivateFarmerPayload,
+  RatePlanFilter,
+  RatePlanDto,
+  CreateRatePlanDraftPayload,
+  UpdateRatePlanDraftPayload,
+  CloneRatePlanPayload,
+  SupersedeRatePlanPayload,
+  CancelRatePlanPayload,
+  CalculateRatePreviewPayload,
+  CalculateRatePreviewResult,
+  ResolveApprovedRatePayload,
+  ResolveApprovedRateResult,
 } from '../../../../shared/ipc-contracts';
+
+const NO_BRIDGE_ERROR: IpcErrorDetails = {
+  code: 'NO_ELECTRON_BRIDGE',
+  messageMr: 'Electron प्रीलोड ब्रिज उपलब्ध नाही (ब्राउझर मोड)',
+  messageEn: 'Electron preload bridge is not available (Browser mode)',
+};
 
 @Injectable({
   providedIn: 'root',
@@ -37,11 +55,7 @@ export class ElectronBridgeService {
     if (!this.api) {
       return {
         success: false,
-        error: {
-          code: 'NO_ELECTRON_BRIDGE',
-          messageMr: 'Electron प्रीलोड ब्रिज उपलब्ध नाही (ब्राउझर मोड)',
-          messageEn: 'Electron preload bridge is not available (Browser mode)',
-        },
+        error: NO_BRIDGE_ERROR,
       };
     }
     return this.api.ping();
@@ -54,11 +68,7 @@ export class ElectronBridgeService {
     if (!this.api) {
       return {
         success: false,
-        error: {
-          code: 'NO_ELECTRON_BRIDGE',
-          messageMr: 'Electron प्रीलोड ब्रिज उपलब्ध नाही (ब्राउझर मोड)',
-          messageEn: 'Electron preload bridge is not available (Browser mode)',
-        },
+        error: NO_BRIDGE_ERROR,
       };
     }
     return this.api.smokeSqlite();
@@ -90,7 +100,7 @@ export class ElectronBridgeService {
     if (!this.api) {
       return {
         success: true,
-        data: { state: 'UNINITIALIZED', dairyProfile: null },
+        data: { state: 'UNINITIALIZED', dairyProfile: null, hasOwner: false },
       };
     }
     return this.api.getSetupStatus();
@@ -105,84 +115,73 @@ export class ElectronBridgeService {
     if (!this.api) {
       return {
         success: false,
-        error: {
-          code: 'NO_ELECTRON_BRIDGE',
-          messageMr: 'Electron ब्रिज उपलब्ध नाही',
-          messageEn: 'Electron bridge is not available',
-        },
+        error: NO_BRIDGE_ERROR,
       };
     }
     return this.api.completeSetup(payload);
   }
 
   /**
-   * Stage 3: Authenticate user.
+   * Stage 3: Authenticate via Password or Quick PIN.
    */
   public async login(payload: LoginPayload): Promise<IpcResponse<AuthSessionDto>> {
     if (!this.api) {
       return {
         success: false,
-        error: {
-          code: 'NO_ELECTRON_BRIDGE',
-          messageMr: 'Electron ब्रिज उपलब्ध नाही',
-          messageEn: 'Electron bridge is not available',
-        },
+        error: NO_BRIDGE_ERROR,
       };
     }
     return this.api.login(payload);
   }
 
   /**
-   * Stage 3: Log out active session.
+   * Stage 3: Terminate session on logout.
    */
   public async logout(): Promise<IpcResponse<{ success: boolean }>> {
     if (!this.api) {
-      return { success: true, data: { success: true } };
+      return {
+        success: true,
+        data: { success: true },
+      };
     }
     return this.api.logout();
   }
 
   /**
-   * Stage 3: Get current authenticated session.
+   * Stage 3: Retrieve current authenticated session.
    */
   public async getSession(): Promise<IpcResponse<AuthSessionDto | null>> {
     if (!this.api) {
-      return { success: true, data: null };
+      return {
+        success: true,
+        data: null,
+      };
     }
     return this.api.getSession();
   }
 
   /**
-   * Stage 3: Get dairy centre profile summary.
+   * Stage 3: Retrieve Dairy Centre Profile summary.
    */
   public async getProfile(): Promise<IpcResponse<DairyProfileSummary>> {
     if (!this.api) {
       return {
         success: false,
-        error: {
-          code: 'NO_ELECTRON_BRIDGE',
-          messageMr: 'Electron ब्रिज उपलब्ध नाही',
-          messageEn: 'Electron bridge is not available',
-        },
+        error: NO_BRIDGE_ERROR,
       };
     }
     return this.api.getProfile();
   }
 
-  // ============================================================================
-  // Stage 4: Farmers Bridge Methods
-  // ============================================================================
-
+  /**
+   * Stage 4: Farmer / Member Management methods.
+   */
   public readonly farmers = {
     list: async (filter?: FarmerFilter): Promise<IpcResponse<FarmerListDto[]>> => {
       if (!this.api?.farmers) {
         return {
           success: false,
-          error: {
-            code: 'NO_ELECTRON_BRIDGE',
-            messageMr: 'Electron ब्रिज उपलब्ध नाही',
-            messageEn: 'Electron bridge is not available',
-          },
+          error: NO_BRIDGE_ERROR,
         };
       }
       return this.api.farmers.list(filter);
@@ -192,11 +191,7 @@ export class ElectronBridgeService {
       if (!this.api?.farmers) {
         return {
           success: false,
-          error: {
-            code: 'NO_ELECTRON_BRIDGE',
-            messageMr: 'Electron ब्रिज उपलब्ध नाही',
-            messageEn: 'Electron bridge is not available',
-          },
+          error: NO_BRIDGE_ERROR,
         };
       }
       return this.api.farmers.getById(id);
@@ -209,11 +204,7 @@ export class ElectronBridgeService {
       if (!this.api?.farmers) {
         return {
           success: false,
-          error: {
-            code: 'NO_ELECTRON_BRIDGE',
-            messageMr: 'Electron ब्रिज उपलब्ध नाही',
-            messageEn: 'Electron bridge is not available',
-          },
+          error: NO_BRIDGE_ERROR,
         };
       }
       return this.api.farmers.getByCode(code, activeOnly);
@@ -223,11 +214,7 @@ export class ElectronBridgeService {
       if (!this.api?.farmers) {
         return {
           success: false,
-          error: {
-            code: 'NO_ELECTRON_BRIDGE',
-            messageMr: 'Electron ब्रिज उपलब्ध नाही',
-            messageEn: 'Electron bridge is not available',
-          },
+          error: NO_BRIDGE_ERROR,
         };
       }
       return this.api.farmers.getEditDetail(id);
@@ -237,11 +224,7 @@ export class ElectronBridgeService {
       if (!this.api?.farmers) {
         return {
           success: false,
-          error: {
-            code: 'NO_ELECTRON_BRIDGE',
-            messageMr: 'Electron ब्रिज उपलब्ध नाही',
-            messageEn: 'Electron bridge is not available',
-          },
+          error: NO_BRIDGE_ERROR,
         };
       }
       return this.api.farmers.create(payload);
@@ -254,11 +237,7 @@ export class ElectronBridgeService {
       if (!this.api?.farmers) {
         return {
           success: false,
-          error: {
-            code: 'NO_ELECTRON_BRIDGE',
-            messageMr: 'Electron ब्रिज उपलब्ध नाही',
-            messageEn: 'Electron bridge is not available',
-          },
+          error: NO_BRIDGE_ERROR,
         };
       }
       return this.api.farmers.update(id, payload);
@@ -271,11 +250,7 @@ export class ElectronBridgeService {
       if (!this.api?.farmers) {
         return {
           success: false,
-          error: {
-            code: 'NO_ELECTRON_BRIDGE',
-            messageMr: 'Electron ब्रिज उपलब्ध नाही',
-            messageEn: 'Electron bridge is not available',
-          },
+          error: NO_BRIDGE_ERROR,
         };
       }
       return this.api.farmers.deactivate(id, payload);
@@ -285,14 +260,127 @@ export class ElectronBridgeService {
       if (!this.api?.farmers) {
         return {
           success: false,
-          error: {
-            code: 'NO_ELECTRON_BRIDGE',
-            messageMr: 'Electron ब्रिज उपलब्ध नाही',
-            messageEn: 'Electron bridge is not available',
-          },
+          error: NO_BRIDGE_ERROR,
         };
       }
       return this.api.farmers.reactivate(id);
+    },
+  };
+
+  /**
+   * Stage 5: Rate Plan Management methods.
+   */
+  public readonly ratePlans = {
+    list: async (filter?: RatePlanFilter): Promise<IpcResponse<RatePlanDto[]>> => {
+      if (!this.api?.ratePlans) {
+        return {
+          success: false,
+          error: NO_BRIDGE_ERROR,
+        };
+      }
+      return this.api.ratePlans.list(filter);
+    },
+
+    getById: async (id: number): Promise<IpcResponse<RatePlanDto>> => {
+      if (!this.api?.ratePlans) {
+        return {
+          success: false,
+          error: NO_BRIDGE_ERROR,
+        };
+      }
+      return this.api.ratePlans.getById(id);
+    },
+
+    createDraft: async (payload: CreateRatePlanDraftPayload): Promise<IpcResponse<RatePlanDto>> => {
+      if (!this.api?.ratePlans) {
+        return {
+          success: false,
+          error: NO_BRIDGE_ERROR,
+        };
+      }
+      return this.api.ratePlans.createDraft(payload);
+    },
+
+    updateDraft: async (
+      id: number,
+      payload: UpdateRatePlanDraftPayload
+    ): Promise<IpcResponse<RatePlanDto>> => {
+      if (!this.api?.ratePlans) {
+        return {
+          success: false,
+          error: NO_BRIDGE_ERROR,
+        };
+      }
+      return this.api.ratePlans.updateDraft(id, payload);
+    },
+
+    clone: async (payload: CloneRatePlanPayload): Promise<IpcResponse<RatePlanDto>> => {
+      if (!this.api?.ratePlans) {
+        return {
+          success: false,
+          error: NO_BRIDGE_ERROR,
+        };
+      }
+      return this.api.ratePlans.clone(payload);
+    },
+
+    approve: async (id: number): Promise<IpcResponse<RatePlanDto>> => {
+      if (!this.api?.ratePlans) {
+        return {
+          success: false,
+          error: NO_BRIDGE_ERROR,
+        };
+      }
+      return this.api.ratePlans.approve(id);
+    },
+
+    supersede: async (
+      payload: SupersedeRatePlanPayload
+    ): Promise<IpcResponse<{ oldPlan: RatePlanDto; newPlan: RatePlanDto }>> => {
+      if (!this.api?.ratePlans) {
+        return {
+          success: false,
+          error: NO_BRIDGE_ERROR,
+        };
+      }
+      return this.api.ratePlans.supersede(payload);
+    },
+
+    cancel: async (
+      id: number,
+      payload: CancelRatePlanPayload
+    ): Promise<IpcResponse<RatePlanDto>> => {
+      if (!this.api?.ratePlans) {
+        return {
+          success: false,
+          error: NO_BRIDGE_ERROR,
+        };
+      }
+      return this.api.ratePlans.cancel(id, payload);
+    },
+
+    calculatePreview: async (
+      payload: CalculateRatePreviewPayload
+    ): Promise<IpcResponse<CalculateRatePreviewResult>> => {
+      if (!this.api?.ratePlans) {
+        return {
+          success: false,
+          error: NO_BRIDGE_ERROR,
+        };
+      }
+      return this.api.ratePlans.calculatePreview(payload);
+    },
+
+    resolveApprovedRate: async (
+      payload: ResolveApprovedRatePayload
+    ): Promise<IpcResponse<ResolveApprovedRateResult>> => {
+      if (!this.api?.ratePlans) {
+        return {
+          success: false,
+          error: NO_BRIDGE_ERROR,
+        };
+      }
+      return this.api.ratePlans.resolveApprovedRate(payload);
     },
   };
 }

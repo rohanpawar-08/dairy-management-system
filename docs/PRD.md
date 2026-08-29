@@ -139,16 +139,27 @@ The **Dairy Management System** is a **100% offline-first Windows desktop applic
 ---
 
 ### Module 6: Rate-Plan Management (दरपत्रक व्यवस्थापन)
-- **Description:** Core pricing engine allowing the dairy owner to define rate plans mapping quality parameters to price per litre (₹/L).
+- **Description:** Core pricing engine allowing the dairy owner to define, clone, approve, supersede, and cancel versioned rate plans for Cow and Buffalo milk based on fat and SNF quality parameters.
 - **Business Rules:**
-  - **Owner-Approved Strategy:** Executes the confirmed pricing strategy (exact matrix grid, step bands, or base formula once confirmed by the pilot dairy).
-  - **Zero Fabrication:** The system never guesses, averages, interpolates, or selects a nearest rate. If an input combination cannot produce an approved rate, the collection is blocked.
-  - **Effective Date Versioning:** Each rate plan has an `effective_from` date and optional `effective_to` date with constraint `effective_to IS NULL OR effective_to >= effective_from`. Editing rates creates a new version; past collections retain their original rate snapshot.
-  - **Provisional Rounding Rule:** Collection amount calculation uses `ROUND_HALF_UP` to the nearest paise as provisional default pending pilot dairy confirmation:
-    $$\text{Amount (Paise)} = \mathrm{round}\left(\frac{\text{Quantity (mL)} \times \text{Rate (Paise/L)}}{1000}\right)$$
+  - **Confirmed Pricing Strategy:** Executes the confirmed `FORMULA` pricing strategy with `PER_PERCENT_POINT_PER_LITRE` pricing basis.
+  - **Exact Calculation Formula:**
+    $$\text{rateNumerator} = (\text{fat\_x100} \times \text{fatRatePaisePerPoint}) + (\text{snf\_x100} \times \text{snfRatePaisePerPoint})$$
+    $$\text{ratePaisePerLitre} = \text{ROUND\_HALF\_UP}\left(\frac{\text{rateNumerator}}{100}\right)$$
+    $$\text{amountPaise} = \text{ROUND\_HALF\_UP}\left(\frac{\text{quantityMl} \times \text{ratePaisePerLitre}}{1000}\right)$$
+  - **Separate Plans by Milk Type:** Independent rate plans and formula parameters are maintained for `COW` and `BUFFALO` milk types.
+  - **Quality Bounds & Step Alignment:** Validates `fat_x100` and `snf_x100` against configured minimum, maximum, and step size (`(fat_x100 - min) % step === 0`).
+  - **Zero Rate Fabrication:** The system never guesses, averages, interpolates, or selects a nearest rate. Out-of-bounds or misaligned values immediately reject the calculation with an explicit bilingual error.
+  - **No Hardcoded Production Coefficients:** A clean installation contains zero seed rate plans. The dairy Owner must create and approve active plans. Test coefficients (₹8.50/₹3.00 for Cow, ₹9.00/₹3.00 for Buffalo) are test fixtures only.
+  - **Lifecycle & Immutability:**
+    * Plans begin in `DRAFT` status and can be freely edited.
+    * Once `APPROVED`, formula parameters and bounds become permanently immutable.
+    * New rates are created via `CLONE` $\rightarrow$ new `DRAFT` $\rightarrow$ `SUPERSEDE`, which atomically closes the previous active plan at `newEffectiveFrom - 1 day`.
+    * Soft cancellation (`CANCELLED`) requires a mandatory reason. Hard deletes are strictly prohibited.
+  - **Effective Date Versioning:** Each rate plan has an `effective_from` date and optional `effective_to` date. Overlapping active/approved periods for the same milk type are prevented by database triggers.
 - **Acceptance Criteria:**
-  - *AC-6.1:* If a quality combination has no matching approved rate, the system displays: `"या फॅट/एसएनएफ साठी दर उपलब्ध नाही. कृपया दरपत्रक तपासा." / "Rate not found for this FAT/SNF. Please verify rate chart."` and disables the save button.
-  - *AC-6.2:* Modifying a rate plan takes effect only for collections created on or after its `effective_from` date.
+  - *AC-6.1:* If a quality combination has no matching approved rate plan or is out of bounds/steps, the system displays a clear bilingual error (`"या फॅट/एसएनएफ साठी दर उपलब्ध नाही. कृपया दरपत्रक तपासा." / "Rate not found for this FAT/SNF. Please verify rate chart."`) and blocks the collection transaction.
+  - *AC-6.2:* Modifying rates creates a new version; past collections retain their original rate and amount snapshots.
+  - *AC-6.3:* Operators cannot create, edit, clone, approve, supersede, or cancel rate plans, but can resolve approved rates for active collection entries.
 
 ---
 

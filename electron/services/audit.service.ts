@@ -17,7 +17,13 @@ export type AuditActionType =
   | 'FARMER_CREATED'
   | 'FARMER_UPDATED'
   | 'FARMER_DEACTIVATED'
-  | 'FARMER_REACTIVATED';
+  | 'FARMER_REACTIVATED'
+  | 'RATE_PLAN_CREATED'
+  | 'RATE_PLAN_UPDATED'
+  | 'RATE_PLAN_CLONED'
+  | 'RATE_PLAN_APPROVED'
+  | 'RATE_PLAN_SUPERSEDED'
+  | 'RATE_PLAN_CANCELLED';
 
 export interface AuditEventInput {
   userId?: number | null;

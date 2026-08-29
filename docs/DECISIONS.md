@@ -68,10 +68,10 @@
 ---
 
 ### ADR-006: Owner-Approved Pricing Strategy & Zero Rate Fabrication Policy
-- **Status:** Accepted Policy (Specific Strategy Unresolved)
-- **Context:** The pricing structure of the pilot dairy is unconfirmed (may use exact matrix, step bands, or a base formula). Guessing rates causes financial disputes and regulatory violations.
-- **Decision:** The application executes strictly an owner-configured and approved pricing strategy. The system never invents, guesses, averages, interpolates, or silently falls back to a nearest rate. If the configured strategy cannot produce an approved rate for a given sample, the collection is blocked with an explicit bilingual error. The physical rate schema is finalized in Stage 5 after the pilot rate chart is received.
-- **Rationale:** Preserves complete pricing integrity and prevents unauthorized assumptions in software calculations.
+- **Status:** Accepted (Confirmed Strategy: `FORMULA` / `PER_PERCENT_POINT_PER_LITRE`)
+- **Context:** The pricing structure for Cow and Buffalo milk is calculated based on exact fat and SNF percentages with per-point rates and bounds. Guessing or interpolating rates causes financial disputes and regulatory violations.
+- **Decision:** The application executes strictly an owner-configured and approved pricing strategy (`FORMULA` with basis `PER_PERCENT_POINT_PER_LITRE`). The system never invents, guesses, averages, interpolates, or silently falls back to a nearest rate. Separate rate plans exist for `COW` and `BUFFALO`. Rate formula parameters enforce integer/BigInt calculation with `ROUND_HALF_UP` rounding. If a sample is out of configured FAT/SNF bounds or quality steps, or if no approved rate plan is active for the business date, the collection is rejected with an explicit bilingual error.
+- **Rationale:** Preserves complete pricing integrity, eliminates floating-point errors, and prevents unauthorized assumptions in software calculations.
 
 ---
 

@@ -1,0 +1,372 @@
+.rate-plans-page {
+  padding: 24px 32px;
+  max-width: 1300px;
+  margin: 0 auto;
+  min-height: 100vh;
+  background-color: #f8fafc;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+
+    button {
+      background-color: #ffffff;
+      border: 1px solid #e2e8f0;
+    }
+  }
+
+  .page-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #0f172a;
+    margin: 0;
+  }
+
+  .page-subtitle {
+    font-size: 0.875rem;
+    color: #64748b;
+    margin: 2px 0 0 0;
+  }
+}
+
+.missing-rates-banner {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 20px;
+  margin-bottom: 24px;
+  background-color: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 10px;
+  color: #92400e;
+
+  mat-icon {
+    font-size: 26px;
+    width: 26px;
+    height: 26px;
+    color: #d97706;
+    flex-shrink: 0;
+  }
+
+  .banner-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-size: 0.9rem;
+  }
+}
+
+.summary-cards-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1.3fr;
+  gap: 20px;
+  margin-bottom: 28px;
+
+  @media (max-width: 1024px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.summary-card {
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+
+  mat-card-header {
+    margin-bottom: 12px;
+  }
+
+  .cow-icon {
+    background-color: #ecfdf5;
+    color: #059669;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .buffalo-icon {
+    background-color: #eff6ff;
+    color: #2563eb;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .calc-icon {
+    background-color: #f5f3ff;
+    color: #7c3aed;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .rate-metric-row {
+    display: flex;
+    gap: 24px;
+    margin-bottom: 12px;
+
+    .metric {
+      display: flex;
+      flex-direction: column;
+      .label {
+        font-size: 0.75rem;
+        color: #64748b;
+        text-transform: uppercase;
+        font-weight: 600;
+      }
+      .value {
+        font-size: 1.35rem;
+        font-weight: 700;
+        color: #0f172a;
+      }
+    }
+  }
+
+  .period-info {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.825rem;
+    color: #64748b;
+
+    mat-icon {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+    }
+  }
+
+  .no-plan-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px 0;
+    color: #94a3b8;
+    gap: 6px;
+    font-size: 0.875rem;
+
+    mat-icon {
+      font-size: 32px;
+      width: 32px;
+      height: 32px;
+    }
+  }
+}
+
+.calculator-card {
+  .calc-form {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .calc-inputs-row {
+    display: grid;
+    grid-template-columns: 1.1fr 1fr 1fr 1fr;
+    gap: 8px;
+
+    .calc-field {
+      width: 100%;
+    }
+  }
+
+  .calc-actions {
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  .calc-result {
+    margin-top: 12px;
+    padding: 10px 14px;
+    background-color: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    border-radius: 8px;
+
+    &.error {
+      background-color: #fef2f2;
+      border-color: #fecaca;
+    }
+
+    .calc-success {
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+    }
+
+    .result-metric {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+
+      .res-label {
+        font-size: 0.75rem;
+        color: #475569;
+      }
+
+      .res-rate,
+      .res-amount {
+        font-size: 1.15rem;
+        font-weight: 700;
+        color: #166534;
+      }
+    }
+
+    .calc-error-box {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #991b1b;
+      font-size: 0.85rem;
+
+      mat-icon {
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+      }
+    }
+  }
+}
+
+.filter-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+
+  .filter-group {
+    display: flex;
+    gap: 12px;
+  }
+
+  .filter-field {
+    min-width: 180px;
+  }
+}
+
+.table-container {
+  background-color: #ffffff;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.plans-table {
+  width: 100%;
+
+  th.mat-header-cell {
+    background-color: #f1f5f9;
+    color: #475569;
+    font-weight: 600;
+    font-size: 0.85rem;
+    padding: 14px 16px;
+  }
+
+  td.mat-cell {
+    padding: 14px 16px;
+    font-size: 0.875rem;
+    color: #334155;
+  }
+
+  .row-subtext {
+    font-size: 0.775rem;
+    color: #64748b;
+    margin-top: 2px;
+  }
+
+  .bounds-text {
+    font-size: 0.8rem;
+    color: #475569;
+  }
+
+  .actions-cell {
+    display: flex;
+    gap: 4px;
+  }
+}
+
+.milk-badge {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+
+  &.cow {
+    background-color: #ecfdf5;
+    color: #065f46;
+  }
+
+  &.buffalo {
+    background-color: #eff6ff;
+    color: #1e40af;
+  }
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+
+  &.current,
+  &.approved {
+    background-color: #dcfce7;
+    color: #166534;
+  }
+
+  &.upcoming {
+    background-color: #e0e7ff;
+    color: #3730a3;
+  }
+
+  &.draft {
+    background-color: #fef9c3;
+    color: #854d0e;
+  }
+
+  &.expired {
+    background-color: #f1f5f9;
+    color: #64748b;
+  }
+
+  &.cancelled {
+    background-color: #fee2e2;
+    color: #991b1b;
+  }
+}
+
+.no-data-cell {
+  padding: 40px !important;
+  text-align: center;
+
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    color: #94a3b8;
+    gap: 8px;
+
+    mat-icon {
+      font-size: 40px;
+      width: 40px;
+      height: 40px;
+    }
+
+    p {
+      margin: 0;
+      font-size: 0.95rem;
+    }
+  }
+}

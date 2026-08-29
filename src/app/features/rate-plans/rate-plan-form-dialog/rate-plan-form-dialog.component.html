@@ -1,0 +1,146 @@
+<div class="rate-plan-dialog-container">
+  <h2 mat-dialog-title class="dialog-title">
+    <mat-icon color="primary">{{ data.mode === 'create' ? 'add_chart' : 'edit_document' }}</mat-icon>
+    <span>{{ data.mode === 'create' ? ('rates.createDraft' | translate) : ('rates.editDraft' | translate) }}</span>
+  </h2>
+
+  <mat-progress-bar *ngIf="isSaving()" mode="indeterminate"></mat-progress-bar>
+
+  <div *ngIf="errorMessage()" class="dialog-error-banner">
+    <mat-icon>error_outline</mat-icon>
+    <span>{{ errorMessage() }}</span>
+  </div>
+
+  <mat-dialog-content class="dialog-content">
+    <form [formGroup]="planForm" class="dialog-form" (ngSubmit)="savePlan()">
+      <!-- General Info -->
+      <div class="section-title">
+        <mat-icon>tune</mat-icon>
+        <span>{{ 'rates.generalInfo' | translate }}</span>
+      </div>
+
+      <div class="form-row">
+        <mat-form-field appearance="outline" class="flex-2">
+          <mat-label>{{ 'rates.planName' | translate }} *</mat-label>
+          <input matInput formControlName="planName" placeholder="उदा. गाय दूध दरपत्रक (सप्टेंबर २०२६)" />
+          <mat-error *ngIf="planForm.get('planName')?.hasError('required')">
+            {{ 'rates.validation.nameRequired' | translate }}
+          </mat-error>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="flex-1">
+          <mat-label>{{ 'rates.milkType' | translate }} *</mat-label>
+          <mat-select formControlName="milkType">
+            <mat-option value="COW">{{ 'milk.cow' | translate }}</mat-option>
+            <mat-option value="BUFFALO">{{ 'milk.buffalo' | translate }}</mat-option>
+          </mat-select>
+        </mat-form-field>
+      </div>
+
+      <div class="form-row">
+        <mat-form-field appearance="outline" class="flex-1">
+          <mat-label>{{ 'rates.effectiveFrom' | translate }} (YYYY-MM-DD) *</mat-label>
+          <input matInput type="date" formControlName="effectiveFrom" />
+          <mat-error *ngIf="planForm.get('effectiveFrom')?.hasError('required')">
+            {{ 'rates.validation.dateRequired' | translate }}
+          </mat-error>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="flex-1">
+          <mat-label>{{ 'rates.effectiveTo' | translate }} ({{ 'common.optional' | translate }})</mat-label>
+          <input matInput type="date" formControlName="effectiveTo" />
+        </mat-form-field>
+      </div>
+
+      <!-- Formula Rates (Paise per point) -->
+      <div class="section-title">
+        <mat-icon>calculate</mat-icon>
+        <span>{{ 'rates.rateCoefficients' | translate }}</span>
+      </div>
+
+      <div class="form-row">
+        <mat-form-field appearance="outline" class="flex-1">
+          <mat-label>{{ 'rates.fatRateCoeff' | translate }} (₹/point) *</mat-label>
+          <span matPrefix class="currency-prefix">₹&nbsp;</span>
+          <input matInput formControlName="fatRateRupees" placeholder="उदा. 8.50" />
+          <mat-hint>{{ 'rates.hint.fatCoeff' | translate }}</mat-hint>
+          <mat-error *ngIf="planForm.get('fatRateRupees')?.hasError('required')">
+            {{ 'rates.validation.fatCoeffRequired' | translate }}
+          </mat-error>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="flex-1">
+          <mat-label>{{ 'rates.snfRateCoeff' | translate }} (₹/point) *</mat-label>
+          <span matPrefix class="currency-prefix">₹&nbsp;</span>
+          <input matInput formControlName="snfRateRupees" placeholder="उदा. 3.00" />
+          <mat-hint>{{ 'rates.hint.snfCoeff' | translate }}</mat-hint>
+          <mat-error *ngIf="planForm.get('snfRateRupees')?.hasError('required')">
+            {{ 'rates.validation.snfCoeffRequired' | translate }}
+          </mat-error>
+        </mat-form-field>
+      </div>
+
+      <!-- Quality Bounds & Increments -->
+      <div class="section-title">
+        <mat-icon>straighten</mat-icon>
+        <span>{{ 'rates.qualityBounds' | translate }}</span>
+      </div>
+
+      <div class="form-row three-cols">
+        <mat-form-field appearance="outline">
+          <mat-label>{{ 'rates.minFat' | translate }} (%) *</mat-label>
+          <input matInput formControlName="minimumFatPercent" placeholder="3.00" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>{{ 'rates.maxFat' | translate }} (%) *</mat-label>
+          <input matInput formControlName="maximumFatPercent" placeholder="6.00" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>{{ 'rates.fatStep' | translate }} (%) *</mat-label>
+          <input matInput formControlName="fatStepPercent" placeholder="0.10" />
+        </mat-form-field>
+      </div>
+
+      <div class="form-row three-cols">
+        <mat-form-field appearance="outline">
+          <mat-label>{{ 'rates.minSnf' | translate }} (%) *</mat-label>
+          <input matInput formControlName="minimumSnfPercent" placeholder="7.50" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>{{ 'rates.maxSnf' | translate }} (%) *</mat-label>
+          <input matInput formControlName="maximumSnfPercent" placeholder="9.50" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>{{ 'rates.snfStep' | translate }} (%) *</mat-label>
+          <input matInput formControlName="snfStepPercent" placeholder="0.10" />
+        </mat-form-field>
+      </div>
+
+      <!-- Notes -->
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>{{ 'rates.notes' | translate }}</mat-label>
+        <textarea matInput formControlName="notes" rows="2" placeholder="नोंदी / संदर्भ"></textarea>
+      </mat-form-field>
+    </form>
+  </mat-dialog-content>
+
+  <mat-dialog-actions align="end" class="dialog-actions">
+    <button mat-button type="button" (click)="cancel()" [disabled]="isSaving()">
+      {{ 'common.cancel' | translate }}
+    </button>
+    <button
+      mat-flat-button
+      color="primary"
+      type="button"
+      (click)="savePlan()"
+      [disabled]="isSaving() || planForm.invalid"
+    >
+      <mat-icon>save</mat-icon>
+      <span>{{ 'common.save' | translate }}</span>
+    </button>
+  </mat-dialog-actions>
+</div>

@@ -38,6 +38,10 @@ export class DashboardComponent implements OnInit {
     this.router.navigate(['/farmers']);
   }
 
+  navigateToRatePlans(): void {
+    this.router.navigate(['/rate-plans']);
+  }
+
   async onLogout(): Promise<void> {
     await this.authState.logout();
   }

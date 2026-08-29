@@ -6,21 +6,32 @@
 
 ## 📌 Overview
 
-This document catalogs unresolved business parameters, domain data, and hardware specifications required from the dairy business owner and pilot stakeholders prior to finalizing rate plans, rounding rules, validation thresholds, printed number formats, and pilot deployment.
+This document catalogs unresolved business parameters, domain data, and hardware specifications required from the dairy business owner and pilot stakeholders prior to finalizing production rates, validation thresholds, printed number formats, and pilot deployment.
 
 > **Governance Notice:** Per [AGENTS.md](../AGENTS.md) and [DECISIONS.md](DECISIONS.md#adr-006-owner-approved-pricing-strategy--zero-rate-fabrication-policy), no developer or AI agent may invent, fabricate, or assume values for these parameters. Actual figures must be provided by the dairy owner or authorized stakeholder.
 
 ---
 
-## ❓ Open Business Questions Matrix
+## 🟢 Confirmed & Resolved Architectural Decisions (Stage 5)
+
+1. **Pricing Strategy Method:** Confirmed `FORMULA` strategy.
+2. **Pricing Basis:** Confirmed `PER_PERCENT_POINT_PER_LITRE` basis.
+3. **Rounding Mode:** Confirmed `ROUND_HALF_UP` on rate numerator and collection amount with exact integer paise arithmetic.
+4. **Rate Management:** Owner-only versioned effective-date plans with draft $\rightarrow$ approve $\rightarrow$ clone $\rightarrow$ supersede lifecycle, SQLite overlap prevention triggers, and zero hard deletes.
+
+> ⚠️ **Test Fixtures Notice:** The sample figures used in test fixtures (e.g. Cow FAT ₹8.50 / SNF ₹3.00, Buffalo FAT ₹9.00 / SNF ₹3.00) are automated test fixtures ONLY. They are not approved production rates. A clean production installation initializes with exactly zero rate plans.
+
+---
+
+## ❓ Open Business Questions Matrix (Unresolved Pilot Parameters)
 
 | # | Domain / Feature Area | Unresolved Business Question | Impact on System | Recommended Provisional Default | Status |
 |---|---|---|---|---|---|
-| **1** | **Cow Milk Pricing** | What is the actual, active FAT/SNF rate chart for Cow Milk (गाय दूध दरपत्रक) used by the pilot collection centre? | Rate engine cannot calculate live cow milk amounts without the official table. | Block calculation with explicit missing rate error until owner enters official rate chart. | 🔴 **Pending Owner Input** |
-| **2** | **Buffalo Milk Pricing** | What is the actual, active FAT/SNF rate chart for Buffalo Milk (म्हैस दूध दरपत्रक) used by the pilot collection centre? | Rate engine cannot calculate live buffalo milk amounts without the official table. | Block calculation with explicit missing rate error until owner enters official rate chart. | 🔴 **Pending Owner Input** |
-| **3** | **Pricing Strategy Method** | Does the dairy use an **exact discrete matrix** (e.g., in steps of 0.1% FAT and 0.1% SNF), **step bands** (e.g., FAT 3.5–3.7%), or a **mathematical formula** (e.g., Fat Rate + SNF Rate)? | Dictates the data entry layout and storage structure of `rate_chart_entries` in Stage 5. | Strategy selection marked **UNRESOLVED**. | 🟡 **Needs Verification** |
-| **4** | **Rounding Method & Aggregation** | 1. Does the dairy round each collection to the nearest paise using `ROUND_HALF_UP`, truncate fractional paise, or use another manual rule?<br>2. Are weekly totals calculated by summing already-rounded collection amounts or by rounding after aggregation? | Dictates exact integer paise arithmetic in calculation and settlement engines. Stage 5 calculation engine remains blocked until confirmed. | `ROUND_HALF_UP` per collection entry (provisional default only, not accepted rule). | 🟡 **Needs Verification** |
-| **5** | **Quality & Quantity Bounds** | What are the absolute hard minimum and maximum allowable bounds for Milk Quantity (L), FAT (%), and SNF (%) for Cow and Buffalo milk? | Prevents operator typo errors (e.g., entering FAT=45 instead of 4.5) without hardcoding unverified bounds. | **Proposed Examples (Awaiting Confirmation):**<br>• Cow FAT: $2.5\% - 6.0\%$<br>• Cow SNF: $7.5\% - 9.5\%$<br>• Buffalo FAT: $5.0\% - 12.0\%$<br>• Buffalo SNF: $8.0\% - 10.5\%$<br>• Qty: $0.1\text{ L} - 100.0\text{ L}$ | 🟡 **Needs Confirmation** |
+| **1** | **Production Cow Rate Coefficients** | What are the actual, active production FAT and SNF rate coefficients (₹/point) for Cow Milk (गाय दूध दर) to be configured by the pilot Owner? | Rate engine cannot calculate live cow milk amounts until the dairy Owner enters and approves the official plan. | System boots with zero rate plans. Calculation is blocked until Owner configures and approves official plan. | 🔴 **Pending Owner Input** |
+| **2** | **Production Buffalo Rate Coefficients** | What are the actual, active production FAT and SNF rate coefficients (₹/point) for Buffalo Milk (म्हैस दूध दर) to be configured by the pilot Owner? | Rate engine cannot calculate live buffalo milk amounts until the dairy Owner enters and approves the official plan. | System boots with zero rate plans. Calculation is blocked until Owner configures and approves official plan. | 🔴 **Pending Owner Input** |
+| **3** | **Pilot Quality Minimums & Maximums** | What are the absolute hard minimum and maximum allowable bounds for Milk Quantity (L), FAT (%), and SNF (%) for Cow and Buffalo milk at the pilot centre? | Rejects operator typo errors during shift collection. | Configurable per rate plan in UI. | 🟡 **Needs Confirmation** |
+| **4** | **Pilot Step Increments** | What are the allowed FAT and SNF step increments (e.g., 0.10% vs 0.05%) at the pilot centre? | Enforces exact step alignment without silent interpolation. | Configurable per rate plan (0.10% default). | 🟡 **Needs Confirmation** |
+| **5** | **Verified Real Pilot Dairy Bills** | Provide 3 verified manual delivery calculations and 1 sample weekly farmer settlement bill from the pilot dairy. | Validates zero float drift against real dairy accounting records. | Test fixtures verified against formula specifications. | 🟡 **Needs Verification** |
 | **6** | **Multiple Deliveries per Shift** | Does the dairy permit a farmer to make multiple deliveries of the *same* milk type in the *same* shift (e.g., bringing two separate cans at different times)? | Dictates whether duplicate deliveries are permanently restricted or handled via operator warning prompts. | High-visibility warning dialog with explicit operator confirmation and audit logging. | 🟡 **Needs Confirmation** |
 | **7** | **Weekly Settlement Cycle** | Does the pilot dairy strictly follow **Monday to Sunday**, or a different cycle (e.g., 1st–10th / 11th–20th / 21st–End, or Wednesday–Tuesday)? | Determines the default date range generator for weekly settlement periods. | Configurable in Settings with Monday–Sunday as default. | 🟡 **Needs Confirmation** |
 | **8** | **A4 Statement Layout** | Is there an existing sample paper bill or cooperative slip format currently distributed to farmers that the A4 PDF statement should emulate? | Ensures high acceptance and immediate familiarity among pilot farmers. | Standard A4 tabular format with daily rows, itemized deductions, and signature blocks. | 🟡 **Sample Requested** |
@@ -37,7 +48,7 @@ This document catalogs unresolved business parameters, domain data, and hardware
 
 When onboarding the pilot dairy centre, provide the following checklist to the dairy owner:
 
-1. **Rate Charts & Pricing Method:** Provide printout or photo of the active Cow Rate Chart and Buffalo Rate Chart, along with explanation of whether exact grid, bands, or formulas are used.
+1. **Rate Coefficients & Bounds:** Provide official active Cow FAT/SNF rates and Buffalo FAT/SNF rates, along with allowable quality bounds.
 2. **Rounding Rule & Sample Calculation:** Provide 3 sample milk delivery calculations with manual rounding steps, and 1 sample weekly farmer settlement.
 3. **Sample Bill & Numbering Preference:** Provide one copy of a previous week's handwritten or printed farmer bill, along with preferred receipt/statement number formats.
 4. **Hardware Details:** Provide the Windows version, screen resolution, and printer model connected to the counter PC.

@@ -100,7 +100,48 @@ async function runSmokePack() {
 
       child.on('close', (code) => {
         clearTimeout(timeout);
-        const hasPassed = code === 0 && stdoutData.includes('Smoke Test PASSED');
+
+        let validatedOk = false;
+        try {
+          const jsonStart = stdoutData.indexOf('=== SMOKE TEST RENDERER EXECUTION RESULT ===');
+          if (jsonStart !== -1) {
+            const rawJson = stdoutData.substring(jsonStart + '=== SMOKE TEST RENDERER EXECUTION RESULT ==='.length).trim();
+            const endIdx = rawJson.indexOf('[Main]');
+            const parsed = JSON.parse(endIdx !== -1 ? rawJson.substring(0, endIdx).trim() : rawJson);
+
+            const s5 = parsed?.sqlite?.data?.stage5;
+            if (
+              s5 &&
+              s5.zeroSeedPlansConfirmed === true &&
+              s5.cowDraftCreatedOk === true &&
+              s5.buffaloDraftCreatedOk === true &&
+              s5.cowPlanApprovedOk === true &&
+              s5.buffaloPlanApprovedOk === true &&
+              s5.cowCalculation5950PaiseOk === true &&
+              s5.cowPreview50Litres297500PaiseOk === true &&
+              s5.buffaloCalculation9000PaiseOk === true &&
+              s5.buffaloPreview50Litres450000PaiseOk === true &&
+              s5.dateResolutionOk === true &&
+              s5.overlappingApprovalRejected === true &&
+              s5.cloneOk === true &&
+              s5.supersedeOk === true &&
+              s5.oldDateResolvesOldPlanOk === true &&
+              s5.newDateResolvesNewPlanOk === true &&
+              s5.operatorDraftListRejected === true &&
+              s5.operatorMutationRejected === true &&
+              s5.operatorResolveApprovedRateOk === true &&
+              s5.approvedPlanImmutableOk === true &&
+              s5.auditEventsOk === true &&
+              s5.noHardDeleteOk === true
+            ) {
+              validatedOk = true;
+            }
+          }
+        } catch (e) {
+          console.warn('[Smoke Pack] JSON validation error:', e.message);
+        }
+
+        const hasPassed = code === 0 && stdoutData.includes('Smoke Test PASSED') && validatedOk;
         resolve({ success: hasPassed, code: code || 0 });
       });
     });

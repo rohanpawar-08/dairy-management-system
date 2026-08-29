@@ -1,4 +1,5 @@
 import { TestBed } from '@angular/core/testing';
+import { Router } from '@angular/router';
 import { DashboardComponent } from './dashboard.component';
 import { AuthStateService } from '../../core/services/auth-state.service';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
@@ -6,15 +7,25 @@ import { signal } from '@angular/core';
 
 describe('DashboardComponent (Angular Unit)', () => {
   let mockAuthState: Partial<AuthStateService>;
+  let routerMock: any;
 
   beforeEach(async () => {
     mockAuthState = {
       dairyProfile: signal({
+        id: 1,
         centreName: 'श्री गणेश कृपा डेअरी',
+        registrationCode: null,
         ownerName: 'राम पाटील',
         phonePrimary: '9876543210',
+        phoneSecondary: null,
+        addressLine: null,
+        taluka: null,
+        district: null,
+        pincode: null,
         defaultLanguage: 'mr',
         settlementStartDay: 'MONDAY',
+        createdAt: '2026-01-01T00:00:00Z',
+        updatedAt: '2026-01-01T00:00:00Z',
       }),
       currentSession: signal({
         userId: 1,
@@ -29,10 +40,15 @@ describe('DashboardComponent (Angular Unit)', () => {
       logout: vi.fn().mockResolvedValue(undefined),
     };
 
+    routerMock = {
+      navigate: vi.fn().mockResolvedValue(true),
+    };
+
     await TestBed.configureTestingModule({
       imports: [DashboardComponent],
       providers: [
         { provide: AuthStateService, useValue: mockAuthState },
+        { provide: Router, useValue: routerMock },
       ],
     }).compileComponents();
   });
@@ -44,6 +60,29 @@ describe('DashboardComponent (Angular Unit)', () => {
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.textContent).toContain('श्री गणेश कृपा डेअरी');
     expect(compiled.textContent).toContain('राम पाटील');
+  });
+
+  it('renders Rate Plans navigation card for Owner and navigates on click', () => {
+    const fixture = TestBed.createComponent(DashboardComponent);
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.textContent).toContain('दरपत्रक व्यवस्थापन');
+
+    const component = fixture.componentInstance;
+    component.navigateToRatePlans();
+    expect(routerMock.navigate).toHaveBeenCalledWith(['/rate-plans']);
+  });
+
+  it('hides Rate Plans navigation card when user is not an Owner', async () => {
+    (mockAuthState.isOwner as any).set(false);
+    (mockAuthState.isOperator as any).set(true);
+
+    const fixture = TestBed.createComponent(DashboardComponent);
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.querySelector('.rate-plans-card')).toBeNull();
   });
 
   it('triggers logout on button click', async () => {

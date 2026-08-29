@@ -100,7 +100,15 @@ app.whenReady().then(async () => {
                 sqliteRes.data?.stage3?.ownerLoginOk === true &&
                 sqliteRes.data?.stage4?.farmerCreatedOk === true &&
                 sqliteRes.data?.stage4?.searchOk === true &&
-                sqliteRes.data?.stage4?.deactivateOk === true,
+                sqliteRes.data?.stage4?.deactivateOk === true &&
+                sqliteRes.data?.stage5?.zeroSeedPlansConfirmed === true &&
+                sqliteRes.data?.stage5?.cowCalculation5950PaiseOk === true &&
+                sqliteRes.data?.stage5?.buffaloCalculation9000PaiseOk === true &&
+                sqliteRes.data?.stage5?.cloneOk === true &&
+                sqliteRes.data?.stage5?.supersedeOk === true &&
+                sqliteRes.data?.stage5?.operatorResolveApprovedRateOk === true &&
+                sqliteRes.data?.stage5?.approvedPlanImmutableOk === true &&
+                sqliteRes.data?.stage5?.noHardDeleteOk === true,
               ping: pingRes,
               sqlite: sqliteRes,
               version: versionRes,
