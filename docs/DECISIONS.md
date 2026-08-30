@@ -192,3 +192,16 @@
   4. **Append-Only Audit Logging with Secret Redaction:** Security events (`SETUP_COMPLETED`, `AUTH_LOGIN_SUCCESS`, `AUTH_LOGIN_FAILED`, `AUTH_RATE_LIMITED`, `AUTH_LOGOUT`) are written exclusively to `audit_logs` with stable `device_id`. All input detail dictionaries are recursively sanitized to redact passwords, PINs, hashes, tokens, and secrets. Successful login aborts session creation if audit recording fails.
   5. **Offline Bilingual i18n:** Bundles static `public/assets/i18n/mr.json` and `public/assets/i18n/en.json` directly with 100% key parity, Marathi default, and instant signal-driven language toggling.
 - **Rationale:** Establishes a zero-trust boundary between the untrusted renderer and privileged main process, eliminates credential leakage, protects local terminals, and guarantees a seamless offline user experience.
+
+---
+
+### ADR-020: Shift Management, Transactional Monotonic Receipt Numbering, and Immutable Collection Snapshots
+- **Status:** Accepted
+- **Context:** High-speed daily milk collection requires strict session lifecycle enforcement (Morning/Evening shifts), collision-safe monotonic receipt numbering, duplicate delivery detection, and mathematical guarantee that historical collections are never retroactively recalculated when rate plans change.
+- **Decision:**
+  1. **Shift Lifecycle & Partial Unique Index:** Shifts operate with status `OPEN` and `LOCKED`. Exactly one shift may be `OPEN` across the entire database enforced by partial unique index `idx_shifts_single_open ON shifts(status) WHERE status = 'OPEN'`. Closing locks the shift; reopening requires Owner authorization and a mandatory audit reason logged to `audit_logs`.
+  2. **Collision-Safe Monotonic Receipt Numbering:** Receipt numbers follow the pattern `MC-YYYYMMDD-M-000001` (Morning) and `MC-YYYYMMDD-E-000001` (Evening). Sequence counters are maintained in `app_settings` and incremented atomically inside the parent collection creation transaction. Transaction rollback rolls back counter increments. Voiding does not release or reuse allocated receipt numbers.
+  3. **Authoritative Milk-Type & Pricing Enforcement:** Only `'COW'` and `'BUFFALO'` are accepted collection milk types (farmer default `'BOTH'` prompts explicit operator selection). Dairy centre `enabled_milk_types` is enforced authoritatively in the main process.
+  4. **Strict Immutability & Database Triggers:** Every collection record snapshots `rate_plan_id`, `rate_applied_paise`, and `amount_paise`. SQLite trigger `trg_milk_collections_prevent_update` blocks direct modification of all 16 transaction fields. Voiding is non-destructive (`status = 'VOIDED'`), requires Owner authorization, and cannot be undone or re-voided. Hard deletion on `shifts` and `milk_collections` is blocked by database triggers.
+  5. **Future Settlement Protection:** Collection voiding checks for active links to finalized settlement items (`settlement_items` / `weekly_settlements`) and rejects voiding with a clean bilingual domain error.
+- **Rationale:** Ensures tamper-proof financial records, collision-free receipts, and uninterrupted daily collection workflow while eliminating floating-point errors and historical data corruption.

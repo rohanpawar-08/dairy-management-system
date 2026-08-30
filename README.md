@@ -22,8 +22,9 @@ The system digitizes and automates daily morning and evening milk collection, dy
 | **Stage 3: Auth, Session & Security** | **Completed** | First-run setup wizard, Scrypt salt+hash auth, PIN login, memory session authority, sliding-window rate limiting, and append-only audit logging. |
 | **Stage 4: Farmer Directory & Opening Balances** | **Completed** | Farmer registration, search, masked bank/UPI metadata, integer paise opening balances, soft deactivation, and balance locking. |
 | **Stage 5: Owner-Controlled Rate Plans & Calculation Engine** | **Completed** | Cow/Buffalo formula pricing engine (`PER_PERCENT_POINT_PER_LITRE`), draft/approval lifecycle, duplicate overlap prevention, preview calculation, and Owner RBAC. |
-| **Stage 6: Morning/Evening Shift Management & Fast Collection Entry** | **Next** | Formal shift sessions, high-speed keyboard collection entry, duplicate delivery warnings, and immutable snapshots. |
-| **Current Implementation State** | **Stage 5 Verified** | All 155 unit and integration tests passing (`npm test`, `test:rates`, `test:farmers`, `test:auth`, `test:audit-base`, `test:db`, `test:backup-basic`, `test:ipc-smoke`, `build:smoke-pack`). |
+| **Stage 6: Morning/Evening Shift Management & Fast Collection Entry** | **Completed** | Shift lifecycle (`OPEN`/`LOCKED`), single open partial index, fast keyboard collection entry (<15s), duplicate delivery confirmations, monotonic receipt sequence, and immutable rate snapshots. |
+| **Stage 7: Adjustments, Deductions & Computed Farmer Ledger** | **Next** | Non-milk adjustments (`INCREASE_PAYABLE`/`DECREASE_PAYABLE`) and real-time computed farmer ledger running balance projection. |
+| **Current Implementation State** | **Stage 6 Verified** | All 208 unit and integration tests passing (`npm test`, `test:collection`, `test:rates`, `test:farmers`, `test:auth`, `test:audit-base`, `test:db`, `test:backup-basic`, `test:ipc-smoke`, `build:smoke-pack`). |
 
 ---
 
@@ -44,8 +45,11 @@ npm install
 # Start Angular renderer and Electron in development mode
 npm run dev
 
-# Run full test suite (Angular component + backend unit + rate plans + farmers + auth/audit + database + backup integration)
+# Run full test suite (Angular component + backend unit + collections + rate plans + farmers + auth/audit + database + backup integration)
 npm test
+
+# Run Stage 6 Milk Collection and Shift management tests
+npm run test:collection
 
 # Run Stage 5 Rate Plan engine, formula calculation, and pricing integration tests
 npm run test:rates

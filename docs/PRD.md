@@ -164,22 +164,26 @@ The **Dairy Management System** is a **100% offline-first Windows desktop applic
 ---
 
 ### Module 7: Morning / Evening Shift Management (सकाळ / संध्याकाळ शिफ्ट व्यवस्थापन)
-- **Description:** Formal shift lifecycle tracking collection sessions.
-- **Shifts:** Morning (सकाळ) and Evening (संध्याकाळ).
+- **Description:** Formal shift lifecycle management governing collection sessions.
+- **Shifts & Timezone Rules:** Morning (सकाळ) and Evening (संध्याकाळ). Business dates are stored as explicit calendar strings (`business_date TEXT NOT NULL`, `YYYY-MM-DD`) derived in Indian Standard Time (Asia/Kolkata, UTC+05:30) to prevent timezone rollover discrepancies.
+- **Single Open Shift Constraint:** At most one shift can be globally `OPEN` across the entire database at any point in time, strictly enforced by partial unique index `idx_shifts_single_open ON shifts(status) WHERE status = 'OPEN'`.
 - **Lifecycle States:** `OPEN` (active collection) $\rightarrow$ `LOCKED` (closed session).
-- **Capabilities:**
-  - Explicit Shift Opening: Operator selects date and shift, confirming start.
-  - Active Shift HUD: Displays total litres collected, total amount, and farmer count in current session.
-  - Shift Closing & Lock: When collection concludes, operator closes the shift (`status = 'LOCKED'`). Collections become locked against direct operator modification.
-  - Shift Reopening: Requires Owner credentials and an audit justification.
+- **Capabilities & Permissions:**
+  - Explicit Shift Opening: Operator or Owner selects date and shift type (`MORNING` / `EVENING`), confirming start.
+  - Active Shift HUD: Real-time display of total litres collected, total amount (₹), and active delivery count in current session.
+  - Shift Closing & Lock: When collection concludes, operator closes shift (`status = 'LOCKED'`). Collections become locked against direct operator modification.
+  - Shift Reopening: Restricted to Owner role with a mandatory audit reason recorded in `audit_logs`.
 - **Acceptance Criteria:**
-  - *AC-7.1:* Collections cannot be saved unless a shift is explicitly `OPEN` for that business date and shift type.
-  - *AC-7.2:* Once a shift is locked, editing or voiding its collections is blocked for Operators without Owner authorization.
+  - *AC-7.1:* Collections cannot be saved unless a shift is explicitly `OPEN` for that business date and shift type. Attempting to open a second shift while one is `OPEN` is blocked.
+  - *AC-7.2:* Once a shift is locked, editing or voiding its collections is blocked for Operators and requires Owner authorization with an audit reason.
 
 ---
 
 ### Module 8: Fast Milk Collection Entry (जलद दूध संकलन नोंदणी)
-- **Description:** High-speed data entry screen optimized for the physical reality of rural collection lines.
+- **Description:** High-speed data entry screen optimized for the physical reality of rural collection lines. Manual entry focus in Stage 6; automated hardware integration (weighing scale & milk analyzer RS232/USB serial integration) is explicitly deferred to future hardware integration stages.
+- **Milk Type Restrictions & Farmer Defaults:**
+  - Dairy centre `enabled_milk_types` (`COW`, `BUFFALO`, or `BOTH`) is authoritatively enforced in the main process.
+  - Farmers registered as `COW` or `BUFFALO` auto-select their default milk type. Farmers registered as `BOTH` require explicit operator selection per delivery.
 - **Workflow & Keyboard Navigation:**
   1. Focus starts on **Member Code** field.
   2. Types Member Code $\rightarrow$ Hits `Enter`.
@@ -187,16 +191,22 @@ The **Dairy Management System** is a **100% offline-first Windows desktop applic
   4. Types **Quantity** (Litres) $\rightarrow$ Hits `Enter`.
   5. Types **FAT%** $\rightarrow$ Hits `Enter`.
   6. Types **SNF%** $\rightarrow$ Hits `Enter`.
-  7. System immediately computes Rate/L (₹) and Total Amount (₹), displaying them in large high-contrast badges.
+  7. System immediately computes Rate/L (₹) and Total Amount (₹), displaying them in large high-contrast preview badges.
   8. Operator hits `Enter` or `Space` on **Save (नोंद करा)**.
-  9. Record is persisted in SQLite; a unique durable `receipt_number` is generated; focus resets to Member Code instantly.
+  9. Record is persisted in SQLite inside an atomic transaction; a unique collision-safe receipt number is generated; focus resets to Member Code instantly.
+- **Monotonic Receipt Numbering & Rollback:**
+  - Standard receipt format: `MC-YYYYMMDD-M-XXXXXX` (Morning) and `MC-YYYYMMDD-E-XXXXXX` (Evening).
+  - Sequence counters maintained in `app_settings` and incremented atomically inside the parent collection creation transaction.
+  - Transaction failure rolls back counter increments without sequence gap consumption. Custom receipt prefix configuration remains an unresolved pilot parameter.
 - **Duplicate Delivery Handling:**
-  - If a collection already exists for that Farmer + Business Date + Shift + Milk Type, system displays a high-visibility warning dialog requiring explicit operator confirmation. The confirmation is logged in `audit_logs`.
-- **Non-Destructive Voiding & Settlement Protection:**
-  - To cancel a mistaken collection, an Owner executes `voidCollection` with a mandatory reason, updating `status = 'VOIDED'`, `voided_at`, and `voided_by_user_id`.
-  - Collections linked to an active finalized settlement cannot be voided until the affected settlement is released through the Owner-authorized cancellation workflow.
+  - Multiple deliveries of the same milk type in the same shift are permitted only after explicit operator confirmation.
+  - If a collection already exists for that Farmer + Business Date + Shift + Milk Type, system displays a high-visibility warning dialog requiring explicit operator confirmation with a mandatory reason (`SECOND_CAN`, `RETEST`, `CORRECTION`, `OTHER`), logged in `audit_logs`.
+- **Immutable Snapshots & Non-Destructive Voiding:**
+  - Every collection persists immutable rate snapshots (`rate_plan_id`, `rate_applied_paise`, `amount_paise`). Rate plan updates never alter historical collection records. Direct updates to 16 transaction fields are blocked by database trigger `trg_milk_collections_prevent_update`.
+  - Non-destructive soft voiding (`status = 'VOIDED'`) requires Owner role and a mandatory reason. Soft voided entries are excluded from active shift totals and shift registers.
+  - Collections linked to an active finalized settlement (`settlement_items`) cannot be voided until the linked settlement is released.
 - **Acceptance Criteria:**
-  - *AC-8.1:* End-to-end entry for an experienced operator takes $< 15$ seconds without touching the mouse.
+  - *AC-8.1:* End-to-end entry for an experienced operator takes $< 15$ seconds without touching the mouse (physical entry speed benchmark validated as pilot manual acceptance item).
   - *AC-8.2:* Stored collection contains: `receipt_number`, `farmer_id`, `shift_id`, `business_date`, `shift_type`, `milk_type`, `quantity_ml`, `fat_x100`, `snf_x100`, `rate_plan_id`, `rate_applied_paise`, `amount_paise`, `status` (`ACTIVE`/`VOIDED`), `created_at`.
 
 ---

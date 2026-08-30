@@ -110,7 +110,8 @@ async function runSmokePack() {
             const parsed = JSON.parse(endIdx !== -1 ? rawJson.substring(0, endIdx).trim() : rawJson);
 
             const s5 = parsed?.sqlite?.data?.stage5;
-            if (
+            const s6 = parsed?.sqlite?.data?.stage6;
+            const s5Ok =
               s5 &&
               s5.zeroSeedPlansConfirmed === true &&
               s5.cowDraftCreatedOk === true &&
@@ -132,8 +133,44 @@ async function runSmokePack() {
               s5.operatorResolveApprovedRateOk === true &&
               s5.approvedPlanImmutableOk === true &&
               s5.auditEventsOk === true &&
-              s5.noHardDeleteOk === true
-            ) {
+              s5.noHardDeleteOk === true;
+
+            const s6Ok =
+              s6 &&
+              s6.migrationVersion4Ok === true &&
+              s6.tablesCount11Ok === true &&
+              s6.zeroCollectionsInitially === true &&
+              s6.indiaBusinessDateOk === true &&
+              s6.morningShiftOpened === true &&
+              s6.secondOpenShiftRejected === true &&
+              s6.activeFarmerResolved === true &&
+              s6.inactiveFarmerRejected === true &&
+              s6.bothFarmerRequiresMilkTypeSelection === true &&
+              s6.disabledMilkTypeRejected === true &&
+              s6.cowCollectionCreated === true &&
+              s6.buffaloCollectionCreated === true &&
+              s6.exactCowRateSnapshotOk === true &&
+              s6.exactBuffaloRateSnapshotOk === true &&
+              s6.receiptSequenceOk === true &&
+              s6.receiptRollbackDoesNotConsumeNumber === true &&
+              s6.duplicateBlockedBeforeConfirmation === true &&
+              s6.confirmedDuplicateCreatedSeparately === true &&
+              s6.duplicateAuditOk === true &&
+              s6.shiftSummaryOk === true &&
+              s6.shiftClosedAndLocked === true &&
+              s6.collectionRejectedAfterClose === true &&
+              s6.operatorReopenRejected === true &&
+              s6.ownerReopenOk === true &&
+              s6.oldSnapshotUnchangedAfterRateSupersede === true &&
+              s6.newCollectionUsesNewPlan === true &&
+              s6.operatorVoidRejected === true &&
+              s6.settlementLinkedVoidRejected === true &&
+              s6.ownerVoidOk === true &&
+              s6.voidExcludedFromTotals === true &&
+              s6.auditEventsOk === true &&
+              s6.noHardDeleteOk === true;
+
+            if (s5Ok && s6Ok) {
               validatedOk = true;
             }
           }

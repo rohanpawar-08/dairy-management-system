@@ -38,6 +38,12 @@ export const routes: Routes = [
     canActivate: [authGuard, ownerGuard],
   },
   {
+    path: 'collection',
+    loadComponent: () =>
+      import('./features/collection/collection.component').then((m) => m.CollectionComponent),
+    canActivate: [authGuard],
+  },
+  {
     path: 'inconsistent',
     component: InconsistentStateComponent,
     canActivate: [inconsistentGuard],

@@ -1,0 +1,406 @@
+<div class="collection-page-container">
+  <!-- Notifications -->
+  <div *ngIf="successBanner()" class="alert-banner success-banner">
+    <mat-icon>check_circle</mat-icon>
+    <span><strong>{{ i18n.t('collection.savedSuccess') }}:</strong> {{ successBanner() }}</span>
+  </div>
+
+  <div *ngIf="collectionState.errorMessage()" class="alert-banner error-banner">
+    <mat-icon>error</mat-icon>
+    <span>{{ collectionState.errorMessage() }}</span>
+  </div>
+
+  <!-- Loading State -->
+  <div *ngIf="collectionState.isLoading() && !collectionState.currentShift()" class="loading-shade">
+    <mat-spinner diameter="40"></mat-spinner>
+    <span>{{ i18n.t('common.loading') }}</span>
+  </div>
+
+  <!-- ======================================================================== -->
+  <!-- STATE A: NO ACTIVE SHIFT -->
+  <!-- ======================================================================== -->
+  <div *ngIf="!collectionState.currentShift() && !collectionState.isLoading()" class="no-shift-container">
+    <mat-card class="open-shift-card">
+      <mat-card-header>
+        <mat-card-title class="open-shift-title">
+          <mat-icon color="primary">wb_sunny</mat-icon>
+          <span>{{ i18n.t('collection.openShiftPromptTitle') }}</span>
+        </mat-card-title>
+        <mat-card-subtitle>{{ i18n.t('collection.openShiftPromptSubtitle') }}</mat-card-subtitle>
+      </mat-card-header>
+
+      <mat-card-content class="open-shift-content">
+        <div class="shift-select-grid">
+          <mat-form-field appearance="outline">
+            <mat-label>{{ i18n.t('collection.businessDate') }} *</mat-label>
+            <input matInput type="date" [(ngModel)]="openShiftDate" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>{{ i18n.t('collection.shiftType') }} *</mat-label>
+            <mat-select [(ngModel)]="openShiftType">
+              <mat-option value="MORNING">{{ i18n.t('collection.morningShift') }} (सकाळ)</mat-option>
+              <mat-option value="EVENING">{{ i18n.t('collection.eveningShift') }} (संध्याकाळ)</mat-option>
+            </mat-select>
+          </mat-form-field>
+        </div>
+
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>{{ i18n.t('ratePlans.notes') }}</mat-label>
+          <input matInput [(ngModel)]="openShiftNotes" placeholder="उदा. सकाळचे संकलन सत्र" />
+        </mat-form-field>
+
+        <div class="readiness-summary-box" *ngIf="collectionState.shiftSummary()?.readiness as r">
+          <div class="readiness-item" [class.ready]="r.hasActiveCowPlan" [class.not-ready]="!r.hasActiveCowPlan">
+            <mat-icon>{{ r.hasActiveCowPlan ? 'check_circle' : 'warning' }}</mat-icon>
+            <span>गाय दरपत्रक: {{ r.hasActiveCowPlan ? r.activeCowPlanName : 'मंजूर दरपत्रक उपलब्ध नाही' }}</span>
+          </div>
+          <div class="readiness-item" [class.ready]="r.hasActiveBuffaloPlan" [class.not-ready]="!r.hasActiveBuffaloPlan">
+            <mat-icon>{{ r.hasActiveBuffaloPlan ? 'check_circle' : 'warning' }}</mat-icon>
+            <span>म्हैस दरपत्रक: {{ r.hasActiveBuffaloPlan ? r.activeBuffaloPlanName : 'मंजूर दरपत्रक उपलब्ध नाही' }}</span>
+          </div>
+        </div>
+      </mat-card-content>
+
+      <mat-card-actions align="end" class="open-shift-actions">
+        <button
+          mat-raised-button
+          color="primary"
+          class="btn-open-shift"
+          [disabled]="openingShift || !openShiftDate || !openShiftType"
+          (click)="onOpenShift()"
+        >
+          <mat-icon>play_circle_outline</mat-icon>
+          <span>{{ i18n.t('collection.openShiftBtn') }}</span>
+        </button>
+      </mat-card-actions>
+    </mat-card>
+  </div>
+
+  <!-- ======================================================================== -->
+  <!-- STATE B: ACTIVE SHIFT HUD & FAST COLLECTION ENTRY -->
+  <!-- ======================================================================== -->
+  <div *ngIf="collectionState.currentShift() as shift" class="active-shift-container">
+    <!-- Active Shift HUD -->
+    <mat-card class="shift-hud-card">
+      <div class="hud-content">
+        <div class="hud-main-meta">
+          <div class="hud-badge">
+            <mat-icon>{{ shift.shiftType === 'MORNING' ? 'wb_sunny' : 'nightlight_round' }}</mat-icon>
+            <span class="shift-type-title">
+              {{ shift.shiftType === 'MORNING' ? i18n.t('collection.morningShift') : i18n.t('collection.eveningShift') }}
+            </span>
+          </div>
+          <div class="hud-date">
+            <span class="date-str">{{ shift.businessDate }}</span>
+            <span class="opened-meta">
+              {{ i18n.t('collection.openedBy') }}: {{ shift.openedByName }} ({{ shift.openedAt | date:'HH:mm' }})
+            </span>
+          </div>
+        </div>
+
+        <!-- Metrics Grid -->
+        <div *ngIf="collectionState.shiftSummary() as summary" class="hud-metrics-bar">
+          <div class="hud-metric">
+            <span class="val">{{ summary.totalActiveCollections }}</span>
+            <span class="lbl">{{ i18n.t('collection.totalCollections') }}</span>
+          </div>
+          <div class="hud-metric">
+            <span class="val">{{ summary.uniqueFarmersCount }}</span>
+            <span class="lbl">{{ i18n.t('collection.uniqueFarmers') }}</span>
+          </div>
+          <div class="hud-metric">
+            <span class="val">{{ summary.cowLitresFormatted }} L</span>
+            <span class="lbl">{{ i18n.t('ratePlans.cow') }} ({{ summary.cowAmountFormatted }})</span>
+          </div>
+          <div class="hud-metric">
+            <span class="val">{{ summary.buffaloLitresFormatted }} L</span>
+            <span class="lbl">{{ i18n.t('ratePlans.buffalo') }} ({{ summary.buffaloAmountFormatted }})</span>
+          </div>
+          <div class="hud-metric total-metric">
+            <span class="val">{{ summary.totalLitresFormatted }} L</span>
+            <span class="lbl">{{ i18n.t('collection.totalMilk') }}</span>
+          </div>
+          <div class="hud-metric total-metric amount-metric">
+            <span class="val">{{ summary.totalAmountFormatted }}</span>
+            <span class="lbl">{{ i18n.t('collection.totalAmount') }}</span>
+          </div>
+        </div>
+
+        <div class="hud-actions">
+          <button
+            *ngIf="shift.status === 'OPEN'"
+            mat-stroked-button
+            color="warn"
+            (click)="onCloseShift()"
+          >
+            <mat-icon>lock</mat-icon>
+            <span>{{ i18n.t('collection.closeShiftBtn') }}</span>
+          </button>
+          <button
+            *ngIf="shift.status === 'LOCKED' && isOwner()"
+            mat-raised-button
+            color="accent"
+            (click)="onReopenShift()"
+          >
+            <mat-icon>lock_open</mat-icon>
+            <span>{{ i18n.t('collection.reopenShiftBtn') }}</span>
+          </button>
+        </div>
+      </div>
+    </mat-card>
+
+    <!-- Fast Collection Form & Rate Preview Grid -->
+    <div class="collection-main-layout">
+      <!-- Collection Entry Panel -->
+      <mat-card class="entry-card">
+        <mat-card-header>
+          <mat-card-title class="entry-title">
+            <mat-icon color="primary">speed</mat-icon>
+            <span>{{ i18n.t('collection.fastEntryTitle') }}</span>
+          </mat-card-title>
+        </mat-card-header>
+
+        <mat-card-content>
+          <form [formGroup]="collectionForm" (ngSubmit)="onSaveCollection()" class="fast-entry-form">
+            <!-- Row 1: Member Code & Farmer Summary -->
+            <div class="form-row-farmer">
+              <mat-form-field appearance="outline" class="member-code-field">
+                <mat-label>{{ i18n.t('farmers.memberCode') }} (Enter)</mat-label>
+                <input
+                  #memberCodeInput
+                  matInput
+                  formControlName="memberCode"
+                  placeholder="उदा. 001"
+                  autocomplete="off"
+                  (input)="onMemberCodeChanged()"
+                  (keydown.enter)="$event.preventDefault(); onMemberCodeEnter()"
+                  (blur)="onMemberCodeEnter()"
+                />
+                <mat-icon matSuffix color="primary">search</mat-icon>
+              </mat-form-field>
+
+              <div *ngIf="resolvedFarmer() as farmer" class="farmer-resolved-card">
+                <div class="farmer-resolved-id">{{ farmer.memberCode }}</div>
+                <div class="farmer-resolved-details">
+                  <span class="name-mr">{{ farmer.nameMr }}</span>
+                  <span *ngIf="farmer.nameEn" class="name-en">({{ farmer.nameEn }})</span>
+                </div>
+              </div>
+
+              <div *ngIf="farmerLookupError()" class="farmer-error-badge">
+                <mat-icon color="warn">error</mat-icon>
+                <span>{{ farmerLookupError() }}</span>
+              </div>
+            </div>
+
+            <!-- Row 2: Milk Type & Measurements -->
+            <div class="form-row-measurements">
+              <mat-form-field appearance="outline" class="measurement-field">
+                <mat-label>{{ i18n.t('collection.milkType') }}</mat-label>
+                <mat-select formControlName="milkType" (selectionChange)="onInputsChanged()">
+                  <mat-option value="COW" *ngIf="collectionState.enabledMilkTypes() !== 'BUFFALO'">
+                    {{ i18n.t('ratePlans.cow') }} (गाय)
+                  </mat-option>
+                  <mat-option value="BUFFALO" *ngIf="collectionState.enabledMilkTypes() !== 'COW'">
+                    {{ i18n.t('ratePlans.buffalo') }} (म्हैस)
+                  </mat-option>
+                </mat-select>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="measurement-field">
+                <mat-label>{{ i18n.t('collection.quantity') }} (L)</mat-label>
+                <input
+                  #quantityInput
+                  matInput
+                  type="number"
+                  step="0.001"
+                  min="0.001"
+                  formControlName="quantityLitres"
+                  placeholder="उदा. 50.0"
+                  autocomplete="off"
+                  (input)="onInputsChanged()"
+                  (keydown.enter)="$event.preventDefault(); onQuantityEnter()"
+                />
+                <span matSuffix class="field-suffix">L</span>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="measurement-field">
+                <mat-label>FAT (%)</mat-label>
+                <input
+                  #fatInput
+                  matInput
+                  type="number"
+                  step="0.1"
+                  min="0.1"
+                  formControlName="fatPercent"
+                  placeholder="उदा. 4.0"
+                  autocomplete="off"
+                  (input)="onInputsChanged()"
+                  (keydown.enter)="$event.preventDefault(); onFatEnter()"
+                />
+                <span matSuffix class="field-suffix">%</span>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="measurement-field">
+                <mat-label>SNF (%)</mat-label>
+                <input
+                  #snfInput
+                  matInput
+                  type="number"
+                  step="0.1"
+                  min="0.1"
+                  formControlName="snfPercent"
+                  placeholder="उदा. 8.5"
+                  autocomplete="off"
+                  (input)="onInputsChanged()"
+                  (keydown.enter)="$event.preventDefault(); onSnfEnter()"
+                />
+                <span matSuffix class="field-suffix">%</span>
+              </mat-form-field>
+            </div>
+
+            <!-- Rate Preview Live Badges -->
+            <div class="rate-preview-container">
+              <div *ngIf="ratePreview() as preview" class="preview-cards-wrapper">
+                <div class="preview-badge rate-badge">
+                  <span class="preview-lbl">{{ i18n.t('ratePlans.appliedRate') }}</span>
+                  <span class="preview-val rate-val">{{ preview.rateRupeesFormatted }}</span>
+                </div>
+                <div class="preview-badge amount-badge">
+                  <span class="preview-lbl">{{ i18n.t('collection.totalPayable') }}</span>
+                  <span class="preview-val amount-val">{{ preview.amountRupeesFormatted }}</span>
+                </div>
+              </div>
+
+              <div *ngIf="ratePreviewError()" class="preview-error-box">
+                <mat-icon color="warn">warning</mat-icon>
+                <span>{{ ratePreviewError() }}</span>
+              </div>
+            </div>
+
+            <!-- Save Action Button -->
+            <div class="form-actions-bar">
+              <button
+                #saveBtn
+                mat-raised-button
+                color="primary"
+                class="btn-save-collection"
+                type="submit"
+                [disabled]="!canSave()"
+              >
+                <mat-spinner *ngIf="collectionState.isSaving()" diameter="20" color="accent"></mat-spinner>
+                <mat-icon *ngIf="!collectionState.isSaving()">save</mat-icon>
+                <span>{{ i18n.t('collection.saveCollectionBtn') }} [Enter]</span>
+              </button>
+            </div>
+          </form>
+        </mat-card-content>
+      </mat-card>
+    </div>
+
+    <!-- Recent Collections Table -->
+    <mat-card class="recent-collections-card">
+      <mat-card-header class="recent-header">
+        <mat-card-title class="recent-title">
+          <mat-icon>history</mat-icon>
+          <span>{{ i18n.t('collection.recentCollectionsTitle') }} ({{ collectionState.recentCollections().length }})</span>
+        </mat-card-title>
+      </mat-card-header>
+
+      <mat-card-content class="table-container">
+        <table mat-table [dataSource]="collectionState.recentCollections()" class="collections-table">
+          <!-- Receipt Number -->
+          <ng-container matColumnDef="receiptNumber">
+            <th mat-header-cell *matHeaderCellDef>{{ i18n.t('collection.receiptNo') }}</th>
+            <td mat-cell *matCellDef="let col" class="mono font-bold">{{ col.receiptNumber }}</td>
+          </ng-container>
+
+          <!-- Member Code & Farmer -->
+          <ng-container matColumnDef="farmer">
+            <th mat-header-cell *matHeaderCellDef>{{ i18n.t('farmers.farmerName') }}</th>
+            <td mat-cell *matCellDef="let col">
+              <span class="font-bold">{{ col.farmerMemberCode }}</span> — {{ col.farmerNameMr }}
+            </td>
+          </ng-container>
+
+          <!-- Milk Type -->
+          <ng-container matColumnDef="milkType">
+            <th mat-header-cell *matHeaderCellDef>{{ i18n.t('collection.milkType') }}</th>
+            <td mat-cell *matCellDef="let col">
+              <span class="type-tag" [class.cow]="col.milkType === 'COW'" [class.buffalo]="col.milkType === 'BUFFALO'">
+                {{ col.milkType === 'COW' ? i18n.t('ratePlans.cow') : i18n.t('ratePlans.buffalo') }}
+              </span>
+            </td>
+          </ng-container>
+
+          <!-- Quantity -->
+          <ng-container matColumnDef="quantity">
+            <th mat-header-cell *matHeaderCellDef>{{ i18n.t('collection.quantity') }}</th>
+            <td mat-cell *matCellDef="let col">{{ col.quantityLitresFormatted }} L</td>
+          </ng-container>
+
+          <!-- Quality FAT / SNF -->
+          <ng-container matColumnDef="quality">
+            <th mat-header-cell *matHeaderCellDef>FAT / SNF</th>
+            <td mat-cell *matCellDef="let col">{{ col.fatFormatted }} / {{ col.snfFormatted }}</td>
+          </ng-container>
+
+          <!-- Rate Applied -->
+          <ng-container matColumnDef="rateApplied">
+            <th mat-header-cell *matHeaderCellDef>{{ i18n.t('collection.rate') }}</th>
+            <td mat-cell *matCellDef="let col">{{ col.rateRupeesFormatted }}</td>
+          </ng-container>
+
+          <!-- Amount -->
+          <ng-container matColumnDef="amount">
+            <th mat-header-cell *matHeaderCellDef>{{ i18n.t('collection.amount') }}</th>
+            <td mat-cell *matCellDef="let col" class="font-bold amount-cell">{{ col.amountRupeesFormatted }}</td>
+          </ng-container>
+
+          <!-- Status -->
+          <ng-container matColumnDef="status">
+            <th mat-header-cell *matHeaderCellDef>{{ i18n.t('collection.status') }}</th>
+            <td mat-cell *matCellDef="let col">
+              <span class="status-badge" [class.active]="col.status === 'ACTIVE'" [class.voided]="col.status === 'VOIDED'">
+                {{ col.status === 'ACTIVE' ? i18n.t('collection.statusActive') : i18n.t('collection.statusVoided') }}
+              </span>
+            </td>
+          </ng-container>
+
+          <!-- Time -->
+          <ng-container matColumnDef="time">
+            <th mat-header-cell *matHeaderCellDef>{{ i18n.t('collection.time') }}</th>
+            <td mat-cell *matCellDef="let col">{{ col.createdAt | date:'HH:mm:ss' }}</td>
+          </ng-container>
+
+          <!-- Actions -->
+          <ng-container matColumnDef="actions">
+            <th mat-header-cell *matHeaderCellDef>{{ i18n.t('common.actions') }}</th>
+            <td mat-cell *matCellDef="let col">
+              <button
+                *ngIf="isOwner() && col.status === 'ACTIVE'"
+                mat-icon-button
+                color="warn"
+                matTooltip="रद्द करा (Void)"
+                (click)="onVoidCollection(col)"
+              >
+                <mat-icon>delete_forever</mat-icon>
+              </button>
+            </td>
+          </ng-container>
+
+          <tr
+            mat-header-row
+            *matHeaderRowDef="['receiptNumber', 'farmer', 'milkType', 'quantity', 'quality', 'rateApplied', 'amount', 'status', 'time', 'actions']"
+          ></tr>
+          <tr
+            mat-row
+            *matRowDef="let row; columns: ['receiptNumber', 'farmer', 'milkType', 'quantity', 'quality', 'rateApplied', 'amount', 'status', 'time', 'actions'];"
+            [class.voided-row]="row.status === 'VOIDED'"
+          ></tr>
+        </table>
+      </mat-card-content>
+    </mat-card>
+  </div>
+</div>

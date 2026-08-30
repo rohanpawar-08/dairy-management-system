@@ -76,6 +76,21 @@
 
     <!-- Modules Grid -->
     <div class="module-cards-grid">
+      <!-- Milk Collection (Fast Counter Entry) -->
+      <mat-card class="module-card clickable" (click)="navigateToCollection()">
+        <div class="card-icon-box" style="background: #e8f5e9; color: #2e7d32;">
+          <mat-icon>local_drink</mat-icon>
+        </div>
+        <div class="card-content-box">
+          <h3>{{ 'collection.title' | translate }}</h3>
+          <p>{{ 'collection.fastEntryTitle' | translate }}</p>
+          <button mat-flat-button color="primary" type="button">
+            <mat-icon>arrow_forward</mat-icon>
+            {{ 'collection.title' | translate }}
+          </button>
+        </div>
+      </mat-card>
+
       <!-- Farmers Directory -->
       <mat-card class="module-card clickable" (click)="navigateToFarmers()">
         <div class="card-icon-box">

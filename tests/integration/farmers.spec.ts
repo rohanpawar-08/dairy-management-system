@@ -389,14 +389,29 @@ describe('Farmer Management, Validation, Security & Opening Balances (Stage 4 In
 
       const created = farmerService.createFarmer(db, sampleFarmerPayload, OWNER_WINDOW_ID);
 
-      // Simulate financial activity by creating a test table
+      // Simulate financial activity by recording a shift and milk collection
       db.exec(`
-        CREATE TABLE IF NOT EXISTS milk_collections (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          farmer_id INTEGER NOT NULL,
-          status TEXT NOT NULL DEFAULT 'ACTIVE'
+        INSERT OR IGNORE INTO users (id, username, full_name, role, password_hash, is_active)
+        VALUES (1, 'owner', 'Owner', 'OWNER', 'hash', 1);
+
+        INSERT OR IGNORE INTO rate_plans (
+          id, plan_name, milk_type, strategy_type, pricing_basis, effective_from, status,
+          created_by_user_id, approved_by_user_id, approved_at
+        ) VALUES (
+          999, 'Test Plan', 'COW', 'FORMULA', 'PER_PERCENT_POINT_PER_LITRE', '2026-09-01', 'APPROVED',
+          1, 1, '2026-09-01T00:00:00Z'
         );
-        INSERT INTO milk_collections (farmer_id, status) VALUES (${created.id}, 'ACTIVE');
+
+        INSERT OR IGNORE INTO shifts (id, business_date, shift_type, status, opened_by_user_id, opened_at)
+        VALUES (999, '2026-09-01', 'MORNING', 'OPEN', 1, '2026-09-01T06:00:00Z');
+
+        INSERT INTO milk_collections (
+          receipt_number, shift_id, farmer_id, business_date, shift_type, milk_type,
+          quantity_ml, fat_x100, snf_x100, rate_plan_id, rate_applied_paise, amount_paise, created_by_user_id, status
+        ) VALUES (
+          'MC-20260901-M-999001', 999, ${created.id}, '2026-09-01', 'MORNING', 'COW',
+          50000, 400, 850, 999, 5950, 297500, 1, 'ACTIVE'
+        );
       `);
 
       // Verify activity checker recognizes it

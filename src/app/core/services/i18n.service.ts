@@ -42,6 +42,13 @@ export class I18nService {
   }
 
   /**
+   * Concise alias for translate().
+   */
+  t(key: string, params?: Record<string, string | number>): string {
+    return this.translate(key, params);
+  }
+
+  /**
    * Synchronously translate a dotted key (e.g. 'setup.centre_name') with fallback to English then raw key.
    */
   translate(key: string, params?: Record<string, string | number>): string {

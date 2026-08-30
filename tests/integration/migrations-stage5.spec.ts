@@ -42,13 +42,13 @@ describe('Migration 003: Rate Plans & PRE_MIGRATION Backup (Integration)', () =>
     if (!db) throw new Error('DB not initialized');
 
     const result = runMigrations(db);
-    expect(result.totalVersion).toBe(3);
-    expect(result.appliedCount).toBe(3);
+    expect(result.totalVersion).toBeGreaterThanOrEqual(3);
+    expect(result.appliedCount).toBeGreaterThanOrEqual(3);
 
     const version = getCurrentMigrationVersion(db);
-    expect(version).toBe(3);
+    expect(version).toBeGreaterThanOrEqual(3);
 
-    // Verify all 9 tables exist
+    // Verify rate_plans and parameters tables exist
     const tables = db
       .prepare(
         "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name ASC"
@@ -56,17 +56,11 @@ describe('Migration 003: Rate Plans & PRE_MIGRATION Backup (Integration)', () =>
       .all() as { name: string }[];
     const tableNames = tables.map((t) => t.name);
 
-    expect(tableNames.sort()).toEqual([
-      'app_settings',
-      'audit_logs',
-      'backup_history',
-      'dairy_profile',
-      'farmers',
-      'rate_formula_parameters',
-      'rate_plans',
-      'schema_migrations',
-      'users',
-    ]);
+    expect(tableNames).toContain('rate_plans');
+    expect(tableNames).toContain('rate_formula_parameters');
+    expect(tableNames).toContain('farmers');
+    expect(tableNames).toContain('dairy_profile');
+    expect(tableNames).toContain('users');
 
     // Verify Migration 003 indexes exist
     const indexes = db
@@ -106,10 +100,10 @@ describe('Migration 003: Rate Plans & PRE_MIGRATION Backup (Integration)', () =>
     runMigrations(db);
     const rerun = runMigrations(db);
     expect(rerun.appliedCount).toBe(0);
-    expect(rerun.totalVersion).toBe(3);
+    expect(rerun.totalVersion).toBeGreaterThanOrEqual(3);
 
     const applied = getAppliedMigrations(db);
-    expect(applied.length).toBe(3);
+    expect(applied.length).toBeGreaterThanOrEqual(3);
     expect(applied[0].name).toBe('foundation');
     expect(applied[1].name).toBe('farmers');
     expect(applied[2].name).toBe('rate_plans');

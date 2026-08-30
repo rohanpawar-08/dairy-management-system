@@ -33,8 +33,18 @@ import {
   CalculateRatePreviewResult,
   ResolveApprovedRatePayload,
   ResolveApprovedRateResult,
+  ShiftDto,
+  ShiftSummaryDto,
+  OpenShiftPayload,
+  ReopenShiftPayload,
+  MilkCollectionDto,
+  CreateMilkCollectionPayload,
+  VoidCollectionPayload,
+  DuplicateCollectionCheckResult,
+  RatePlanMilkType,
   Stage4SmokeSummary,
   Stage5SmokeSummary,
+  Stage6SmokeSummary,
 } from '../../shared/ipc-contracts';
 import { applyAndVerifyPragmas, getDatabaseConnection } from '../db/connection';
 import { runMigrations } from '../db/migrator';
@@ -43,6 +53,13 @@ import { authService } from '../services/auth.service';
 import { sessionService } from '../core/session.service';
 import { farmerService } from '../services/farmer.service';
 import { ratePlanService } from '../services/rate-plan.service';
+import { shiftService } from '../services/shift.service';
+import { milkCollectionService } from '../services/milk-collection.service';
+import { receiptNumberService } from '../services/receipt-number.service';
+import { businessDateProvider } from '../utils/business-date';
+import { milkCollectionRepository } from '../db/milk-collection.repository';
+import { shiftRepository } from '../db/shift.repository';
+import { farmerRepository } from '../db/farmer.repository';
 
 function toIpcError(
   code: string,
@@ -262,6 +279,9 @@ export function registerIpcHandlers(): void {
         smokeWebContentsId
       );
       const activeResolutionBlockedForInactive = activeResolved === null;
+
+      // Reactivate farmer for subsequent collection workflows
+      farmerService.reactivateFarmer(db, farmerSmoke.id, smokeWebContentsId);
 
       // 8. Audit events exist for Stage 4 actions
       const farmerAuditRows = db
@@ -523,7 +543,425 @@ export function registerIpcHandlers(): void {
       );
       const noHardDeleteOk = cancelledDraft.status === 'CANCELLED';
 
-      // 13. Logout cleans session
+      // ======================================================================
+      // STAGE 6 SMOKE TEST VERIFICATION
+      // ======================================================================
+      const migrationVersion4Ok = migrationResult.totalVersion >= 4;
+      const tablesCount11Ok = tables.length >= 11;
+
+      // 1. Zero initial collections
+      const initialCollectionsCount = (
+        db.prepare('SELECT count(*) as count FROM milk_collections').get() as { count: number }
+      ).count;
+      const zeroCollectionsInitially = initialCollectionsCount === 0;
+
+      // 2. India Business Date
+      const todayDate = '2026-09-15';
+      const indiaBusinessDateOk = /^\d{4}-\d{2}-\d{2}$/.test(businessDateProvider.getToday());
+
+      // 3. Open Morning shift
+      const morningShift = shiftService.openShift(
+        db,
+        { businessDate: todayDate, shiftType: 'MORNING' },
+        smokeWebContentsId
+      );
+      const morningShiftOpened = morningShift.status === 'OPEN';
+
+      // 4. Second open shift rejected
+      let secondOpenShiftRejected = false;
+      try {
+        shiftService.openShift(
+          db,
+          { businessDate: todayDate, shiftType: 'EVENING' },
+          smokeWebContentsId
+        );
+      } catch {
+        secondOpenShiftRejected = true;
+      }
+
+      // 5. Active farmer resolution & Inactive farmer rejection
+      const activeFarmerResolved =
+        farmerRepository.getByMemberCode(db, '001')?.is_active === 1;
+
+      const inactiveFarmerId = farmerRepository.insertFarmer(db, {
+        memberCode: 'INACTIVE_99',
+        nameMr: 'निष्क्रिय शेतकरी',
+        phone: '9999988888',
+        defaultMilkType: 'COW',
+        openingBalancePaise: 0,
+        nowIso: new Date().toISOString(),
+      });
+      farmerRepository.deactivateFarmer(db, inactiveFarmerId, new Date().toISOString());
+
+      let inactiveFarmerRejected = false;
+      try {
+        milkCollectionService.createCollection(
+          db,
+          {
+            shiftId: morningShift.id,
+            farmerId: inactiveFarmerId,
+            milkType: 'COW',
+            quantityLitres: '10.000',
+            fatPercent: '4.00',
+            snfPercent: '8.50',
+          },
+          smokeWebContentsId
+        );
+      } catch {
+        inactiveFarmerRejected = true;
+      }
+
+      // 5b. Farmer with default BOTH requires explicit milk type choice
+      const bothFarmerId = farmerRepository.insertFarmer(db, {
+        memberCode: 'BOTH_01',
+        nameMr: 'दोन्ही दूध शेतकरी',
+        phone: '9888877777',
+        defaultMilkType: 'BOTH',
+        openingBalancePaise: 0,
+        nowIso: new Date().toISOString(),
+      });
+      const bothFarmer = farmerRepository.getById(db, bothFarmerId);
+      const bothFarmerRequiresMilkTypeSelection = bothFarmer?.default_milk_type === 'BOTH';
+
+      // 5c. Dairy configured for COW only rejects BUFFALO collection
+      db.prepare("INSERT OR REPLACE INTO app_settings (key, value, updated_at) VALUES ('enabled_milk_types', 'COW', datetime('now'))").run();
+      let disabledMilkTypeRejected = false;
+      try {
+        milkCollectionService.createCollection(
+          db,
+          {
+            shiftId: morningShift.id,
+            farmerId: farmerSmoke.id,
+            milkType: 'BUFFALO',
+            quantityLitres: '10.000',
+            fatPercent: '7.00',
+            snfPercent: '9.00',
+          },
+          smokeWebContentsId
+        );
+      } catch (err: unknown) {
+        disabledMilkTypeRejected = err instanceof Error && err.message.includes('COW milk only');
+      }
+      // Reset dairy enabled milk types to BOTH
+      db.prepare("INSERT OR REPLACE INTO app_settings (key, value, updated_at) VALUES ('enabled_milk_types', 'BOTH', datetime('now'))").run();
+
+      // 6. Cow & Buffalo collection creation and exact rate snapshot
+      const cowCollection = milkCollectionService.createCollection(
+        db,
+        {
+          shiftId: morningShift.id,
+          memberCode: '001',
+          milkType: 'COW',
+          quantityLitres: '50.000',
+          fatPercent: '4.00',
+          snfPercent: '8.50',
+        },
+        smokeWebContentsId
+      );
+      const cowCollectionCreated = cowCollection.status === 'ACTIVE';
+      const exactCowRateSnapshotOk =
+        cowCollection.rateAppliedPaise === 5950 && cowCollection.amountPaise === 297500;
+
+      const buffaloCollection = milkCollectionService.createCollection(
+        db,
+        {
+          shiftId: morningShift.id,
+          memberCode: '001',
+          milkType: 'BUFFALO',
+          quantityLitres: '50.000',
+          fatPercent: '7.00',
+          snfPercent: '9.00',
+        },
+        smokeWebContentsId
+      );
+      const buffaloCollectionCreated = buffaloCollection.status === 'ACTIVE';
+      const exactBuffaloRateSnapshotOk =
+        buffaloCollection.rateAppliedPaise === 9000 && buffaloCollection.amountPaise === 450000;
+
+      // 7. Receipt sequence verification
+      const receiptSequenceOk =
+        cowCollection.receiptNumber.endsWith('-000001') &&
+        buffaloCollection.receiptNumber.endsWith('-000002');
+
+      // 7b. Receipt counter rollback test (does not consume counter on rollback)
+      const counterBeforeFail = db
+        .prepare("SELECT value FROM app_settings WHERE key = 'receipt_counter_20260915_MORNING'")
+        .get() as { value?: string } | undefined;
+      const countValBefore = counterBeforeFail ? parseInt(counterBeforeFail.value || '0', 10) : 0;
+
+      let rollbackReceiptOk = false;
+      try {
+        db.transaction(() => {
+          receiptNumberService.getNextReceiptNumber(db!, '2026-09-15', 'MORNING');
+          throw new Error('Simulated transaction failure for receipt counter rollback');
+        })();
+      } catch {
+        const counterAfterFail = db
+          .prepare("SELECT value FROM app_settings WHERE key = 'receipt_counter_20260915_MORNING'")
+          .get() as { value?: string } | undefined;
+        const countValAfter = counterAfterFail ? parseInt(counterAfterFail.value || '0', 10) : 0;
+        rollbackReceiptOk = countValAfter === countValBefore;
+      }
+      const receiptRollbackDoesNotConsumeNumber = rollbackReceiptOk;
+
+      // 8. Duplicate detection and confirmed duplicate creation
+      let duplicateBlockedBeforeConfirmation = false;
+      try {
+        milkCollectionService.createCollection(
+          db,
+          {
+            shiftId: morningShift.id,
+            memberCode: '001',
+            milkType: 'COW',
+            quantityLitres: '50.000',
+            fatPercent: '4.00',
+            snfPercent: '8.50',
+          },
+          smokeWebContentsId
+        );
+      } catch (dupErr) {
+        duplicateBlockedBeforeConfirmation =
+          dupErr instanceof Error && dupErr.message.includes('DUPLICATE_COLLECTION');
+      }
+
+      const confirmedDuplicate = milkCollectionService.createCollection(
+        db,
+        {
+          shiftId: morningShift.id,
+          memberCode: '001',
+          milkType: 'COW',
+          quantityLitres: '50.000',
+          fatPercent: '4.00',
+          snfPercent: '8.50',
+          duplicateConfirmed: true,
+          duplicateReason: 'SECOND_CAN',
+        },
+        smokeWebContentsId
+      );
+      const confirmedDuplicateCreatedSeparately =
+        confirmedDuplicate.id !== cowCollection.id &&
+        confirmedDuplicate.receiptNumber.endsWith('-000003');
+
+      const dupAuditCount = (
+        db
+          .prepare(
+            "SELECT count(*) as count FROM audit_logs WHERE action_type = 'COLLECTION_DUPLICATE_CONFIRMED'"
+          )
+          .get() as { count: number }
+      ).count;
+      const duplicateAuditOk = dupAuditCount >= 1;
+
+      // 9. Shift Summary check
+      const shiftSummaryBeforeClose = shiftService.getShiftSummary(
+        db,
+        morningShift.id,
+        smokeWebContentsId
+      );
+      const shiftSummaryOk =
+        shiftSummaryBeforeClose.totalActiveCollections === 3 &&
+        shiftSummaryBeforeClose.totalQuantityMl === 150000 &&
+        shiftSummaryBeforeClose.totalAmountPaise === 1045000;
+
+      // 10. Shift Close and Locked Rejection
+      const closedShift = shiftService.closeShift(
+        db,
+        morningShift.id,
+        smokeWebContentsId
+      );
+      const shiftClosedAndLocked = closedShift.status === 'LOCKED';
+
+      let collectionRejectedAfterClose = false;
+      try {
+        milkCollectionService.createCollection(
+          db,
+          {
+            shiftId: morningShift.id,
+            memberCode: '001',
+            milkType: 'COW',
+            quantityLitres: '10.000',
+            fatPercent: '4.00',
+            snfPercent: '8.50',
+          },
+          smokeWebContentsId
+        );
+      } catch {
+        collectionRejectedAfterClose = true;
+      }
+
+      // 11. Reopen Role Authorization (Operator Rejected, Owner Allowed)
+      sessionService.createSession(9987, {
+        id: 999,
+        username: 'smoke_op',
+        full_name: 'Smoke Operator',
+        role: 'OPERATOR',
+      });
+
+      let operatorReopenRejected = false;
+      try {
+        shiftService.reopenShift(
+          db,
+          { shiftId: morningShift.id, reason: 'Operator Reopen' },
+          9987
+        );
+      } catch {
+        operatorReopenRejected = true;
+      }
+
+      const reopenedShift = shiftService.reopenShift(
+        db,
+        { shiftId: morningShift.id, reason: 'Owner Reopen Test' },
+        smokeWebContentsId
+      );
+      const ownerReopenOk =
+        reopenedShift.status === 'OPEN' && reopenedShift.reopenCount === 1;
+
+      // 12. Rate snapshot immutability after rate change and supersede
+      const savedSnapshot = milkCollectionRepository.getById(db, cowCollection.id);
+      const oldSnapshotUnchangedAfterRateSupersede =
+        savedSnapshot !== null &&
+        savedSnapshot.rate_plan_id === approvedCow.id &&
+        savedSnapshot.rate_applied_paise === 5950 &&
+        savedSnapshot.amount_paise === 297500;
+
+      // Close morning shift to open later shift
+      shiftService.closeShift(db, morningShift.id, smokeWebContentsId);
+
+      // Open new Evening shift on 2026-10-05 where clonedCow is active (effectiveFrom 2026-10-01)
+      const laterShift = shiftService.openShift(
+        db,
+        { businessDate: '2026-10-05', shiftType: 'EVENING' },
+        smokeWebContentsId
+      );
+      const laterCollection = milkCollectionService.createCollection(
+        db,
+        {
+          shiftId: laterShift.id,
+          memberCode: '001',
+          milkType: 'COW',
+          quantityLitres: '50.000',
+          fatPercent: '4.00',
+          snfPercent: '8.50',
+        },
+        smokeWebContentsId
+      );
+      const newCollectionUsesNewPlan =
+        laterCollection.ratePlanId === clonedCow.id &&
+        laterCollection.rateAppliedPaise === 6075 &&
+        laterCollection.amountPaise === 303750;
+      shiftService.closeShift(db, laterShift.id, smokeWebContentsId);
+
+      // Reopen morningShift for remaining checks
+      shiftService.reopenShift(
+        db,
+        { shiftId: morningShift.id, reason: 'Reopen for void checks' },
+        smokeWebContentsId
+      );
+
+      // 13. Void Authorization & Shift Summary recalculation
+      let operatorVoidRejected = false;
+      try {
+        milkCollectionService.voidCollection(
+          db,
+          { collectionId: confirmedDuplicate.id, reason: 'Operator Void' },
+          9987
+        );
+      } catch {
+        operatorVoidRejected = true;
+      }
+
+      sessionService.clearSession(9987);
+
+      // 13b. Future settlement allocation check rejects voiding
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS weekly_settlements (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          status TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS settlement_items (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          settlement_id INTEGER NOT NULL,
+          source_type TEXT NOT NULL,
+          source_id INTEGER NOT NULL,
+          status TEXT NOT NULL
+        );
+        INSERT INTO weekly_settlements (id, status) VALUES (101, 'FINALIZED');
+        INSERT INTO settlement_items (settlement_id, source_type, source_id, status)
+        VALUES (101, 'MILK_COLLECTION', ${cowCollection.id}, 'ACTIVE');
+      `);
+
+      let settlementLinkedVoidRejected = false;
+      try {
+        milkCollectionService.voidCollection(
+          db,
+          { collectionId: cowCollection.id, reason: 'Attempting to void settlement-linked collection' },
+          smokeWebContentsId
+        );
+      } catch (settleErr) {
+        settlementLinkedVoidRejected =
+          settleErr instanceof Error && settleErr.message.includes('linked to active weekly settlement');
+      }
+
+      // Cleanup test settlement tables
+      db.exec(`
+        DROP TABLE IF EXISTS settlement_items;
+        DROP TABLE IF EXISTS weekly_settlements;
+      `);
+
+      const voidedCollection = milkCollectionService.voidCollection(
+        db,
+        { collectionId: confirmedDuplicate.id, reason: 'Accidental double entry test' },
+        smokeWebContentsId
+      );
+      const ownerVoidOk = voidedCollection.status === 'VOIDED';
+
+      const summaryAfterVoid = shiftService.getShiftSummary(
+        db,
+        morningShift.id,
+        smokeWebContentsId
+      );
+      const voidExcludedFromTotals =
+        summaryAfterVoid.totalActiveCollections === 2 &&
+        summaryAfterVoid.totalVoidedCollections === 1 &&
+        summaryAfterVoid.totalQuantityMl === 100000 &&
+        summaryAfterVoid.totalAmountPaise === 747500;
+
+      // 14. Stage 6 Audit Events
+      const stage6AuditRows = (
+        db
+          .prepare(`
+            SELECT count(DISTINCT action_type) as count
+            FROM audit_logs
+            WHERE action_type IN (
+              'SHIFT_OPENED',
+              'SHIFT_CLOSED',
+              'SHIFT_REOPENED',
+              'MILK_COLLECTION_CREATED',
+              'COLLECTION_DUPLICATE_CONFIRMED',
+              'MILK_COLLECTION_VOIDED'
+            )
+          `)
+          .get() as { count: number }
+      ).count;
+      const stage6AuditEventsOk = stage6AuditRows === 6;
+
+      // 15. No hard-delete database triggers
+      let noHardDeleteCollectionOk = false;
+      try {
+        db.prepare('DELETE FROM milk_collections WHERE id = ?').run(cowCollection.id);
+      } catch {
+        noHardDeleteCollectionOk = true;
+      }
+
+      let noHardDeleteShiftOk = false;
+      try {
+        db.prepare('DELETE FROM shifts WHERE id = ?').run(morningShift.id);
+      } catch {
+        noHardDeleteShiftOk = true;
+      }
+
+      const stage6NoHardDeleteOk = noHardDeleteCollectionOk && noHardDeleteShiftOk;
+
+      // 16. Logout cleans session
       const loggedOut = authService.logout(db, smokeWebContentsId);
       const sessionAfterLogout = sessionService.getSession(smokeWebContentsId);
       const logoutOk = loggedOut === true && sessionAfterLogout === null;
@@ -574,6 +1012,41 @@ export function registerIpcHandlers(): void {
         noHardDeleteOk,
       };
 
+      const stage6Smoke: Stage6SmokeSummary = {
+        migrationVersion4Ok,
+        tablesCount11Ok,
+        zeroCollectionsInitially,
+        indiaBusinessDateOk,
+        morningShiftOpened,
+        secondOpenShiftRejected,
+        activeFarmerResolved,
+        inactiveFarmerRejected,
+        bothFarmerRequiresMilkTypeSelection,
+        disabledMilkTypeRejected,
+        cowCollectionCreated,
+        buffaloCollectionCreated,
+        exactCowRateSnapshotOk,
+        exactBuffaloRateSnapshotOk,
+        receiptSequenceOk,
+        receiptRollbackDoesNotConsumeNumber,
+        duplicateBlockedBeforeConfirmation,
+        confirmedDuplicateCreatedSeparately,
+        duplicateAuditOk,
+        shiftSummaryOk,
+        shiftClosedAndLocked,
+        collectionRejectedAfterClose,
+        operatorReopenRejected,
+        ownerReopenOk,
+        oldSnapshotUnchangedAfterRateSupersede,
+        newCollectionUsesNewPlan,
+        operatorVoidRejected,
+        settlementLinkedVoidRejected,
+        ownerVoidOk,
+        voidExcludedFromTotals,
+        auditEventsOk: stage6AuditEventsOk,
+        noHardDeleteOk: stage6NoHardDeleteOk,
+      };
+
       return {
         success: true,
         data: {
@@ -584,10 +1057,11 @@ export function registerIpcHandlers(): void {
           timestamp: new Date().toISOString(),
           migrationVersion: migrationResult.totalVersion,
           tablesCount: tables.length,
-          migrationOk: migrationResult.totalVersion >= 3 && tables.length >= 9,
+          migrationOk: migrationResult.totalVersion >= 4 && tables.length >= 11,
           stage3: stage3Smoke,
           stage4: stage4Smoke,
           stage5: stage5Smoke,
+          stage6: stage6Smoke,
         },
       };
     } catch (err: unknown) {
@@ -1233,6 +1707,291 @@ export function registerIpcHandlers(): void {
         return {
           success: false,
           error: toIpcError('RATE_PLAN_RESOLVE_APPROVED_RATE_ERROR', message),
+        };
+      }
+    }
+  );
+
+  // ==========================================================================
+  // STAGE 6: SHIFTS AND MILK COLLECTIONS
+  // ==========================================================================
+
+  // 28. Shift: Get Current Open Shift
+  ipcMain.handle(
+    IPC_CHANNELS.SHIFT_GET_CURRENT,
+    async (event: IpcMainInvokeEvent): Promise<IpcResponse<ShiftDto | null>> => {
+      try {
+        const db = getDatabaseConnection();
+        const shift = shiftService.getCurrentShift(db, event.sender.id);
+        return {
+          success: true,
+          data: shift,
+        };
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        return {
+          success: false,
+          error: toIpcError('SHIFT_GET_CURRENT_ERROR', message),
+        };
+      }
+    }
+  );
+
+  // 29. Shift: Get By ID
+  ipcMain.handle(
+    IPC_CHANNELS.SHIFT_GET_BY_ID,
+    async (
+      event: IpcMainInvokeEvent,
+      id: number
+    ): Promise<IpcResponse<ShiftDto>> => {
+      try {
+        const db = getDatabaseConnection();
+        const shift = shiftService.getShiftById(db, id, event.sender.id);
+        return {
+          success: true,
+          data: shift,
+        };
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        return {
+          success: false,
+          error: toIpcError('SHIFT_GET_BY_ID_ERROR', message),
+        };
+      }
+    }
+  );
+
+  // 30. Shift: Open
+  ipcMain.handle(
+    IPC_CHANNELS.SHIFT_OPEN,
+    async (
+      event: IpcMainInvokeEvent,
+      payload: OpenShiftPayload
+    ): Promise<IpcResponse<ShiftDto>> => {
+      try {
+        const db = getDatabaseConnection();
+        const shift = shiftService.openShift(db, payload, event.sender.id);
+        return {
+          success: true,
+          data: shift,
+        };
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        return {
+          success: false,
+          error: toIpcError('SHIFT_OPEN_ERROR', message),
+        };
+      }
+    }
+  );
+
+  // 31. Shift: Close
+  ipcMain.handle(
+    IPC_CHANNELS.SHIFT_CLOSE,
+    async (
+      event: IpcMainInvokeEvent,
+      shiftId: number
+    ): Promise<IpcResponse<ShiftDto>> => {
+      try {
+        const db = getDatabaseConnection();
+        const shift = shiftService.closeShift(db, shiftId, event.sender.id);
+        return {
+          success: true,
+          data: shift,
+        };
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        return {
+          success: false,
+          error: toIpcError('SHIFT_CLOSE_ERROR', message),
+        };
+      }
+    }
+  );
+
+  // 32. Shift: Reopen (OWNER ONLY)
+  ipcMain.handle(
+    IPC_CHANNELS.SHIFT_REOPEN,
+    async (
+      event: IpcMainInvokeEvent,
+      payload: ReopenShiftPayload
+    ): Promise<IpcResponse<ShiftDto>> => {
+      try {
+        const db = getDatabaseConnection();
+        const shift = shiftService.reopenShift(db, payload, event.sender.id);
+        return {
+          success: true,
+          data: shift,
+        };
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        return {
+          success: false,
+          error: toIpcError('SHIFT_REOPEN_ERROR', message),
+        };
+      }
+    }
+  );
+
+  // 33. Shift: Get Summary
+  ipcMain.handle(
+    IPC_CHANNELS.SHIFT_GET_SUMMARY,
+    async (
+      event: IpcMainInvokeEvent,
+      shiftId: number
+    ): Promise<IpcResponse<ShiftSummaryDto>> => {
+      try {
+        const db = getDatabaseConnection();
+        const summary = shiftService.getShiftSummary(db, shiftId, event.sender.id);
+        return {
+          success: true,
+          data: summary,
+        };
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        return {
+          success: false,
+          error: toIpcError('SHIFT_GET_SUMMARY_ERROR', message),
+        };
+      }
+    }
+  );
+
+  // 34. Milk Collection: Create
+  ipcMain.handle(
+    IPC_CHANNELS.COLLECTION_CREATE,
+    async (
+      event: IpcMainInvokeEvent,
+      payload: CreateMilkCollectionPayload
+    ): Promise<IpcResponse<MilkCollectionDto>> => {
+      try {
+        const db = getDatabaseConnection();
+        const collection = milkCollectionService.createCollection(
+          db,
+          payload,
+          event.sender.id
+        );
+        return {
+          success: true,
+          data: collection,
+        };
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        return {
+          success: false,
+          error: toIpcError('COLLECTION_CREATE_ERROR', message),
+        };
+      }
+    }
+  );
+
+  // 35. Milk Collection: List By Shift
+  ipcMain.handle(
+    IPC_CHANNELS.COLLECTION_LIST_BY_SHIFT,
+    async (
+      event: IpcMainInvokeEvent,
+      shiftId: number
+    ): Promise<IpcResponse<MilkCollectionDto[]>> => {
+      try {
+        const db = getDatabaseConnection();
+        const list = milkCollectionService.listCollectionsByShift(
+          db,
+          shiftId,
+          event.sender.id
+        );
+        return {
+          success: true,
+          data: list,
+        };
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        return {
+          success: false,
+          error: toIpcError('COLLECTION_LIST_ERROR', message),
+        };
+      }
+    }
+  );
+
+  // 36. Milk Collection: Get By Receipt Number
+  ipcMain.handle(
+    IPC_CHANNELS.COLLECTION_GET_BY_RECEIPT,
+    async (
+      event: IpcMainInvokeEvent,
+      receiptNumber: string
+    ): Promise<IpcResponse<MilkCollectionDto>> => {
+      try {
+        const db = getDatabaseConnection();
+        const collection = milkCollectionService.getCollectionByReceipt(
+          db,
+          receiptNumber,
+          event.sender.id
+        );
+        return {
+          success: true,
+          data: collection,
+        };
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        return {
+          success: false,
+          error: toIpcError('COLLECTION_GET_BY_RECEIPT_ERROR', message),
+        };
+      }
+    }
+  );
+
+  // 37. Milk Collection: Void (OWNER ONLY)
+  ipcMain.handle(
+    IPC_CHANNELS.COLLECTION_VOID,
+    async (
+      event: IpcMainInvokeEvent,
+      payload: VoidCollectionPayload
+    ): Promise<IpcResponse<MilkCollectionDto>> => {
+      try {
+        const db = getDatabaseConnection();
+        const voided = milkCollectionService.voidCollection(
+          db,
+          payload,
+          event.sender.id
+        );
+        return {
+          success: true,
+          data: voided,
+        };
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        return {
+          success: false,
+          error: toIpcError('COLLECTION_VOID_ERROR', message),
+        };
+      }
+    }
+  );
+
+  // 38. Milk Collection: Check Duplicate
+  ipcMain.handle(
+    IPC_CHANNELS.COLLECTION_CHECK_DUPLICATE,
+    async (
+      event: IpcMainInvokeEvent,
+      payload: { shiftId: number; farmerId: number; milkType: RatePlanMilkType }
+    ): Promise<IpcResponse<DuplicateCollectionCheckResult>> => {
+      try {
+        const db = getDatabaseConnection();
+        const result = milkCollectionService.checkDuplicate(
+          db,
+          payload,
+          event.sender.id
+        );
+        return {
+          success: true,
+          data: result,
+        };
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        return {
+          success: false,
+          error: toIpcError('COLLECTION_CHECK_DUPLICATE_ERROR', message),
         };
       }
     }

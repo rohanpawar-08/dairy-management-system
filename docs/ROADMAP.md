@@ -122,26 +122,31 @@ Each stage represents an **independently testable milestone**. Development proce
 
 ---
 
-### Stage 6: Morning/Evening Shift Management & Fast Milk Collection Entry *(NEXT ACTIVE STAGE)*
+### Stage 6: Morning/Evening Shift Management & Fast Milk Collection Entry *(COMPLETED)*
 - **Objective:** Implement formal shift sessions and the high-speed (<15s) keyboard-driven milk collection entry screen with duplicate delivery warnings, collision-safe receipt numbering, and immutable snapshots.
 - **Entry Requirements:** Stage 5 verified.
 - **Deliverables:**
-  - Migration `004_shifts_and_collections.sql` creating `shifts` and `milk_collections` tables.
-  - Shift management UI (Open Shift, Active HUD, Close Shift with `LOCKED` state, Owner-authorized reopen).
-  - Transactional, collision-safe receipt numbering service for milk collections.
-  - Fast Milk Collection Screen:
-    * Auto-focus tab indexing: Member Code $\rightarrow$ Quantity $\rightarrow$ FAT $\rightarrow$ SNF $\rightarrow$ Save.
-    * Live calculation badge preview (Rate and Total ₹).
-    * Duplicate delivery warning dialog with explicit operator confirmation and audit logging.
+  - [x] Migration `004_shifts_and_collections.sql` creating `shifts` and `milk_collections` tables with partial unique index for single OPEN shift and deletion-prevention triggers.
+  - [x] Auto-generated and verified `PRE_MIGRATION` backup execution prior to running Migration 004 on initialized databases.
+  - [x] Shift management UI and backend services (Open Shift, Active HUD, Close Shift with `LOCKED` state, Owner-authorized reopen with mandatory reason).
+  - [x] Transactional, collision-safe monotonic receipt numbering service for milk collections (`MC-YYYYMMDD-M-000001` / `MC-YYYYMMDD-E-000001`).
+  - [x] Fast Milk Collection Screen (`/collection`):
+    * Auto-focus keyboard workflow: Member Code $\rightarrow$ Quantity $\rightarrow$ FAT $\rightarrow$ SNF $\rightarrow$ Save $\rightarrow$ Auto-refocus.
+    * Live calculation badge preview (Rate and Total ₹) updating reactively.
+    * Duplicate delivery warning dialog with explicit operator confirmation and audit logging (`SECOND_CAN`, `RETEST`, `CORRECTION`, `OTHER`).
     * Immutable snapshot recording (`rate_plan_id`, `rate_applied_paise`, `amount_paise`).
-  - Non-destructive `voidCollection` operation with mandatory audit reason (locked against voiding if linked to active finalized settlement).
+  - [x] Non-destructive `voidCollection` operation with mandatory audit reason restricted to Owner role.
+  - [x] Dedicated test runner `npm run test:collection` covering shift lifecycle, receipt sequence, duplicate detection, immutable snapshots, and voiding.
 - **Verification Commands:**
-  - `npm run test:collection` (Tests rapid entry sequencing, duplicate warnings, immutable snapshots, and non-destructive voiding).
-- **Exit Criteria:** Collection entry executed in $< 15$ seconds via keyboard; duplicate warning alerts operator; records store exact rate snapshots; voiding updates status non-destructively.
+  - `npm run test:collection` (All 32 unit and integration tests pass: 11 Angular specs + 21 backend integration/unit specs).
+  - `npm run test` (All 208 tests pass across 44 test suites: 72 Angular specs + 136 backend integration/unit specs).
+  - `npm run test:ipc-smoke` (Verifies bidirectional IPC, SQLite migrations 001-004, Stage 3 auth, Stage 4 farmers, Stage 5 rates, and Stage 6 shift & collection lifecycle in isolated runtime).
+  - `npm run build:smoke-pack` (Verifies packaged executable launches and executes complete Stage 1–6 verification sequence).
+- **Exit Criteria:** Collection entry executed in $< 15$ seconds via keyboard; duplicate warning alerts operator; records store exact rate snapshots; voiding updates status non-destructively (All criteria PASSED).
 
 ---
 
-### Stage 7: Adjustments, Deductions & Computed Farmer Ledger
+### Stage 7: Adjustments, Deductions & Computed Farmer Ledger *(NEXT ACTIVE STAGE)*
 - **Objective:** Implement non-milk adjustments (`INCREASE_PAYABLE` / `DECREASE_PAYABLE`) and the real-time computed farmer ledger.
 - **Entry Requirements:** Stage 6 verified.
 - **Deliverables:**

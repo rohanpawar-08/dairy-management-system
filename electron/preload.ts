@@ -27,6 +27,15 @@ import type {
   CalculateRatePreviewResult,
   ResolveApprovedRatePayload,
   ResolveApprovedRateResult,
+  ShiftDto,
+  ShiftSummaryDto,
+  OpenShiftPayload,
+  ReopenShiftPayload,
+  MilkCollectionDto,
+  CreateMilkCollectionPayload,
+  VoidCollectionPayload,
+  DuplicateCollectionCheckResult,
+  RatePlanMilkType,
 } from '../shared/ipc-contracts';
 
 // Inlined channel constants so preload is completely self-contained in sandboxed renderer
@@ -60,6 +69,18 @@ const CHANNELS = {
   RATE_PLAN_CANCEL: 'dairy:rate-plan:cancel',
   RATE_PLAN_CALCULATE_PREVIEW: 'dairy:rate-plan:calculate-preview',
   RATE_PLAN_RESOLVE_APPROVED_RATE: 'dairy:rate-plan:resolve-approved-rate',
+  // Stage 6 Shift & Collection Channels
+  SHIFT_GET_CURRENT: 'dairy:shift:get-current',
+  SHIFT_GET_BY_ID: 'dairy:shift:get-by-id',
+  SHIFT_OPEN: 'dairy:shift:open',
+  SHIFT_CLOSE: 'dairy:shift:close',
+  SHIFT_REOPEN: 'dairy:shift:reopen',
+  SHIFT_GET_SUMMARY: 'dairy:shift:get-summary',
+  COLLECTION_CREATE: 'dairy:collection:create',
+  COLLECTION_LIST_BY_SHIFT: 'dairy:collection:list-by-shift',
+  COLLECTION_GET_BY_RECEIPT: 'dairy:collection:get-by-receipt',
+  COLLECTION_VOID: 'dairy:collection:void',
+  COLLECTION_CHECK_DUPLICATE: 'dairy:collection:check-duplicate',
 } as const;
 
 /**
@@ -176,6 +197,54 @@ const dairyApi: DairyApiBridge = {
 
     resolveApprovedRate: (payload: ResolveApprovedRatePayload): Promise<IpcResponse<ResolveApprovedRateResult>> => {
       return ipcRenderer.invoke(CHANNELS.RATE_PLAN_RESOLVE_APPROVED_RATE, payload);
+    },
+  },
+
+  shifts: {
+    getCurrent: (): Promise<IpcResponse<ShiftDto | null>> => {
+      return ipcRenderer.invoke(CHANNELS.SHIFT_GET_CURRENT);
+    },
+
+    getById: (id: number): Promise<IpcResponse<ShiftDto>> => {
+      return ipcRenderer.invoke(CHANNELS.SHIFT_GET_BY_ID, id);
+    },
+
+    open: (payload: OpenShiftPayload): Promise<IpcResponse<ShiftDto>> => {
+      return ipcRenderer.invoke(CHANNELS.SHIFT_OPEN, payload);
+    },
+
+    close: (shiftId: number): Promise<IpcResponse<ShiftDto>> => {
+      return ipcRenderer.invoke(CHANNELS.SHIFT_CLOSE, shiftId);
+    },
+
+    reopen: (payload: ReopenShiftPayload): Promise<IpcResponse<ShiftDto>> => {
+      return ipcRenderer.invoke(CHANNELS.SHIFT_REOPEN, payload);
+    },
+
+    getSummary: (shiftId: number): Promise<IpcResponse<ShiftSummaryDto>> => {
+      return ipcRenderer.invoke(CHANNELS.SHIFT_GET_SUMMARY, shiftId);
+    },
+  },
+
+  collections: {
+    create: (payload: CreateMilkCollectionPayload): Promise<IpcResponse<MilkCollectionDto>> => {
+      return ipcRenderer.invoke(CHANNELS.COLLECTION_CREATE, payload);
+    },
+
+    listByShift: (shiftId: number): Promise<IpcResponse<MilkCollectionDto[]>> => {
+      return ipcRenderer.invoke(CHANNELS.COLLECTION_LIST_BY_SHIFT, shiftId);
+    },
+
+    getByReceipt: (receiptNumber: string): Promise<IpcResponse<MilkCollectionDto>> => {
+      return ipcRenderer.invoke(CHANNELS.COLLECTION_GET_BY_RECEIPT, receiptNumber);
+    },
+
+    void: (payload: VoidCollectionPayload): Promise<IpcResponse<MilkCollectionDto>> => {
+      return ipcRenderer.invoke(CHANNELS.COLLECTION_VOID, payload);
+    },
+
+    checkDuplicate: (payload: { shiftId: number; farmerId: number; milkType: RatePlanMilkType }): Promise<IpcResponse<DuplicateCollectionCheckResult>> => {
+      return ipcRenderer.invoke(CHANNELS.COLLECTION_CHECK_DUPLICATE, payload);
     },
   },
 };

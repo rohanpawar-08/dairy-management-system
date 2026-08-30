@@ -23,7 +23,13 @@ export type AuditActionType =
   | 'RATE_PLAN_CLONED'
   | 'RATE_PLAN_APPROVED'
   | 'RATE_PLAN_SUPERSEDED'
-  | 'RATE_PLAN_CANCELLED';
+  | 'RATE_PLAN_CANCELLED'
+  | 'SHIFT_OPENED'
+  | 'SHIFT_CLOSED'
+  | 'SHIFT_REOPENED'
+  | 'MILK_COLLECTION_CREATED'
+  | 'COLLECTION_DUPLICATE_CONFIRMED'
+  | 'MILK_COLLECTION_VOIDED';
 
 export interface AuditEventInput {
   userId?: number | null;

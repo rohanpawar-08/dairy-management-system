@@ -44,6 +44,7 @@ export interface SqliteSmokeResult {
   stage3?: Stage3SmokeSummary;
   stage4?: Stage4SmokeSummary;
   stage5?: Stage5SmokeSummary;
+  stage6?: Stage6SmokeSummary;
 }
 
 export interface Stage3SmokeSummary {
@@ -406,15 +407,211 @@ export const IPC_CHANNELS = {
   RATE_PLAN_GET: 'dairy:rate-plan:get',
   RATE_PLAN_CREATE_DRAFT: 'dairy:rate-plan:create-draft',
   RATE_PLAN_UPDATE_DRAFT: 'dairy:rate-plan:update-draft',
+  RATE_PLAN_CLONED: 'dairy:rate-plan:clone',
   RATE_PLAN_CLONE: 'dairy:rate-plan:clone',
   RATE_PLAN_APPROVE: 'dairy:rate-plan:approve',
   RATE_PLAN_SUPERSEDE: 'dairy:rate-plan:supersede',
   RATE_PLAN_CANCEL: 'dairy:rate-plan:cancel',
   RATE_PLAN_CALCULATE_PREVIEW: 'dairy:rate-plan:calculate-preview',
   RATE_PLAN_RESOLVE_APPROVED_RATE: 'dairy:rate-plan:resolve-approved-rate',
+  // Stage 6 Shift & Milk Collection Channels
+  SHIFT_GET_CURRENT: 'dairy:shift:get-current',
+  SHIFT_GET_BY_ID: 'dairy:shift:get-by-id',
+  SHIFT_OPEN: 'dairy:shift:open',
+  SHIFT_CLOSE: 'dairy:shift:close',
+  SHIFT_REOPEN: 'dairy:shift:reopen',
+  SHIFT_GET_SUMMARY: 'dairy:shift:get-summary',
+  COLLECTION_CREATE: 'dairy:collection:create',
+  COLLECTION_LIST_BY_SHIFT: 'dairy:collection:list-by-shift',
+  COLLECTION_GET_BY_RECEIPT: 'dairy:collection:get-by-receipt',
+  COLLECTION_VOID: 'dairy:collection:void',
+  COLLECTION_CHECK_DUPLICATE: 'dairy:collection:check-duplicate',
 } as const;
 
 export type IpcChannel = (typeof IPC_CHANNELS)[keyof typeof IPC_CHANNELS];
+
+// Stage 6 Shift & Collection Types and DTOs
+export type ShiftType = 'MORNING' | 'EVENING';
+export type ShiftStatus = 'OPEN' | 'LOCKED';
+
+export interface ShiftDto {
+  id: number;
+  businessDate: string; // YYYY-MM-DD
+  shiftType: ShiftType;
+  status: ShiftStatus;
+  openedByUserId: number;
+  openedByName: string;
+  openedAt: string;
+  closedByUserId: number | null;
+  closedByName: string | null;
+  closedAt: string | null;
+  reopenedByUserId: number | null;
+  reopenedByName: string | null;
+  reopenedAt: string | null;
+  reopenReason: string | null;
+  reopenCount: number;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ShiftReadinessDto {
+  hasActiveCowPlan: boolean;
+  activeCowPlanName: string | null;
+  hasActiveBuffaloPlan: boolean;
+  activeBuffaloPlanName: string | null;
+  warnings: string[];
+}
+
+export interface ShiftSummaryDto {
+  shiftId: number;
+  businessDate: string;
+  shiftType: ShiftType;
+  status: ShiftStatus;
+  totalActiveCollections: number;
+  uniqueFarmersCount: number;
+  cowQuantityMl: number;
+  cowAmountPaise: number;
+  buffaloQuantityMl: number;
+  buffaloAmountPaise: number;
+  totalQuantityMl: number;
+  totalAmountPaise: number;
+  totalVoidedCollections: number;
+  cowLitresFormatted: string;
+  cowAmountFormatted: string;
+  buffaloLitresFormatted: string;
+  buffaloAmountFormatted: string;
+  totalLitresFormatted: string;
+  totalAmountFormatted: string;
+  readiness?: ShiftReadinessDto;
+}
+
+export interface OpenShiftPayload {
+  businessDate: string; // YYYY-MM-DD
+  shiftType: ShiftType;
+  notes?: string | null;
+}
+
+export interface ReopenShiftPayload {
+  shiftId: number;
+  reason: string;
+}
+
+export type MilkCollectionStatus = 'ACTIVE' | 'VOIDED';
+export type DuplicateReason = 'SECOND_CAN' | 'RETEST' | 'CORRECTION' | 'OTHER';
+
+export interface MilkCollectionDto {
+  id: number;
+  receiptNumber: string;
+  shiftId: number;
+  farmerId: number;
+  farmerMemberCode: string;
+  farmerNameMr: string;
+  farmerNameEn: string | null;
+  businessDate: string;
+  shiftType: ShiftType;
+  milkType: RatePlanMilkType;
+  quantityMl: number;
+  quantityLitresFormatted: string;
+  fatX100: number;
+  fatFormatted: string;
+  snfX100: number;
+  snfFormatted: string;
+  ratePlanId: number;
+  ratePlanName: string;
+  rateAppliedPaise: number;
+  rateRupeesFormatted: string;
+  amountPaise: number;
+  amountRupeesFormatted: string;
+  duplicateConfirmed: boolean;
+  duplicateReason: string | null;
+  status: MilkCollectionStatus;
+  voidedAt: string | null;
+  voidedByUserId: number | null;
+  voidedByName: string | null;
+  voidReason: string | null;
+  createdByUserId: number;
+  createdByName: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateMilkCollectionPayload {
+  shiftId: number;
+  farmerId?: number;
+  memberCode?: string;
+  milkType: RatePlanMilkType;
+  quantityLitres: string | number;
+  fatPercent: string | number;
+  snfPercent: string | number;
+  duplicateConfirmed?: boolean;
+  duplicateReason?: string | null;
+}
+
+export interface ExistingCollectionSummary {
+  id: number;
+  receiptNumber: string;
+  milkType: RatePlanMilkType;
+  quantityMl: number;
+  quantityLitresFormatted: string;
+  fatX100: number;
+  snfX100: number;
+  amountPaise: number;
+  createdAt: string;
+}
+
+export interface DuplicateCollectionCheckResult {
+  isDuplicate: boolean;
+  existingCollections: ExistingCollectionSummary[];
+}
+
+export interface VoidCollectionPayload {
+  collectionId: number;
+  reason: string;
+}
+
+export interface MilkCollectionFilter {
+  shiftId?: number;
+  farmerId?: number;
+  businessDate?: string;
+  status?: MilkCollectionStatus;
+  milkType?: RatePlanMilkType;
+}
+
+export interface Stage6SmokeSummary {
+  migrationVersion4Ok: boolean;
+  tablesCount11Ok: boolean;
+  zeroCollectionsInitially: boolean;
+  indiaBusinessDateOk: boolean;
+  morningShiftOpened: boolean;
+  secondOpenShiftRejected: boolean;
+  activeFarmerResolved: boolean;
+  inactiveFarmerRejected: boolean;
+  bothFarmerRequiresMilkTypeSelection: boolean;
+  disabledMilkTypeRejected: boolean;
+  cowCollectionCreated: boolean;
+  buffaloCollectionCreated: boolean;
+  exactCowRateSnapshotOk: boolean;
+  exactBuffaloRateSnapshotOk: boolean;
+  receiptSequenceOk: boolean;
+  receiptRollbackDoesNotConsumeNumber: boolean;
+  duplicateBlockedBeforeConfirmation: boolean;
+  confirmedDuplicateCreatedSeparately: boolean;
+  duplicateAuditOk: boolean;
+  shiftSummaryOk: boolean;
+  shiftClosedAndLocked: boolean;
+  collectionRejectedAfterClose: boolean;
+  operatorReopenRejected: boolean;
+  ownerReopenOk: boolean;
+  oldSnapshotUnchangedAfterRateSupersede: boolean;
+  newCollectionUsesNewPlan: boolean;
+  operatorVoidRejected: boolean;
+  settlementLinkedVoidRejected: boolean;
+  ownerVoidOk: boolean;
+  voidExcludedFromTotals: boolean;
+  auditEventsOk: boolean;
+  noHardDeleteOk: boolean;
+}
 
 /**
  * Strongly typed interface for the preload bridge exposed on `window.dairyApi`.
@@ -453,5 +650,21 @@ export interface DairyApiBridge {
     cancel: (id: number, payload: CancelRatePlanPayload) => Promise<IpcResponse<RatePlanDto>>;
     calculatePreview: (payload: CalculateRatePreviewPayload) => Promise<IpcResponse<CalculateRatePreviewResult>>;
     resolveApprovedRate: (payload: ResolveApprovedRatePayload) => Promise<IpcResponse<ResolveApprovedRateResult>>;
+  };
+  // Stage 6 Shift & Collection Methods
+  shifts: {
+    getCurrent: () => Promise<IpcResponse<ShiftDto | null>>;
+    getById: (id: number) => Promise<IpcResponse<ShiftDto>>;
+    open: (payload: OpenShiftPayload) => Promise<IpcResponse<ShiftDto>>;
+    close: (shiftId: number) => Promise<IpcResponse<ShiftDto>>;
+    reopen: (payload: ReopenShiftPayload) => Promise<IpcResponse<ShiftDto>>;
+    getSummary: (shiftId: number) => Promise<IpcResponse<ShiftSummaryDto>>;
+  };
+  collections: {
+    create: (payload: CreateMilkCollectionPayload) => Promise<IpcResponse<MilkCollectionDto>>;
+    listByShift: (shiftId: number) => Promise<IpcResponse<MilkCollectionDto[]>>;
+    getByReceipt: (receiptNumber: string) => Promise<IpcResponse<MilkCollectionDto>>;
+    void: (payload: VoidCollectionPayload) => Promise<IpcResponse<MilkCollectionDto>>;
+    checkDuplicate: (payload: { shiftId: number; farmerId: number; milkType: RatePlanMilkType }) => Promise<IpcResponse<DuplicateCollectionCheckResult>>;
   };
 }

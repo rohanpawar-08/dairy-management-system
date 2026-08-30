@@ -28,6 +28,15 @@ import {
   CalculateRatePreviewResult,
   ResolveApprovedRatePayload,
   ResolveApprovedRateResult,
+  ShiftDto,
+  ShiftSummaryDto,
+  OpenShiftPayload,
+  ReopenShiftPayload,
+  MilkCollectionDto,
+  CreateMilkCollectionPayload,
+  VoidCollectionPayload,
+  DuplicateCollectionCheckResult,
+  RatePlanMilkType,
 } from '../../../../shared/ipc-contracts';
 
 const NO_BRIDGE_ERROR: IpcErrorDetails = {
@@ -381,6 +390,138 @@ export class ElectronBridgeService {
         };
       }
       return this.api.ratePlans.resolveApprovedRate(payload);
+    },
+  };
+
+  /**
+   * Stage 6: Shifts IPC Methods
+   */
+  public readonly shifts = {
+    getCurrent: async (): Promise<IpcResponse<ShiftDto | null>> => {
+      if (!this.api?.shifts) {
+        return {
+          success: false,
+          error: NO_BRIDGE_ERROR,
+        };
+      }
+      return this.api.shifts.getCurrent();
+    },
+
+    getById: async (id: number): Promise<IpcResponse<ShiftDto>> => {
+      if (!this.api?.shifts) {
+        return {
+          success: false,
+          error: NO_BRIDGE_ERROR,
+        };
+      }
+      return this.api.shifts.getById(id);
+    },
+
+    open: async (payload: OpenShiftPayload): Promise<IpcResponse<ShiftDto>> => {
+      if (!this.api?.shifts) {
+        return {
+          success: false,
+          error: NO_BRIDGE_ERROR,
+        };
+      }
+      return this.api.shifts.open(payload);
+    },
+
+    close: async (shiftId: number): Promise<IpcResponse<ShiftDto>> => {
+      if (!this.api?.shifts) {
+        return {
+          success: false,
+          error: NO_BRIDGE_ERROR,
+        };
+      }
+      return this.api.shifts.close(shiftId);
+    },
+
+    reopen: async (payload: ReopenShiftPayload): Promise<IpcResponse<ShiftDto>> => {
+      if (!this.api?.shifts) {
+        return {
+          success: false,
+          error: NO_BRIDGE_ERROR,
+        };
+      }
+      return this.api.shifts.reopen(payload);
+    },
+
+    getSummary: async (shiftId: number): Promise<IpcResponse<ShiftSummaryDto>> => {
+      if (!this.api?.shifts) {
+        return {
+          success: false,
+          error: NO_BRIDGE_ERROR,
+        };
+      }
+      return this.api.shifts.getSummary(shiftId);
+    },
+  };
+
+  /**
+   * Stage 6: Milk Collections IPC Methods
+   */
+  public readonly collections = {
+    create: async (
+      payload: CreateMilkCollectionPayload
+    ): Promise<IpcResponse<MilkCollectionDto>> => {
+      if (!this.api?.collections) {
+        return {
+          success: false,
+          error: NO_BRIDGE_ERROR,
+        };
+      }
+      return this.api.collections.create(payload);
+    },
+
+    listByShift: async (
+      shiftId: number
+    ): Promise<IpcResponse<MilkCollectionDto[]>> => {
+      if (!this.api?.collections) {
+        return {
+          success: false,
+          error: NO_BRIDGE_ERROR,
+        };
+      }
+      return this.api.collections.listByShift(shiftId);
+    },
+
+    getByReceipt: async (
+      receiptNumber: string
+    ): Promise<IpcResponse<MilkCollectionDto>> => {
+      if (!this.api?.collections) {
+        return {
+          success: false,
+          error: NO_BRIDGE_ERROR,
+        };
+      }
+      return this.api.collections.getByReceipt(receiptNumber);
+    },
+
+    void: async (
+      payload: VoidCollectionPayload
+    ): Promise<IpcResponse<MilkCollectionDto>> => {
+      if (!this.api?.collections) {
+        return {
+          success: false,
+          error: NO_BRIDGE_ERROR,
+        };
+      }
+      return this.api.collections.void(payload);
+    },
+
+    checkDuplicate: async (payload: {
+      shiftId: number;
+      farmerId: number;
+      milkType: RatePlanMilkType;
+    }): Promise<IpcResponse<DuplicateCollectionCheckResult>> => {
+      if (!this.api?.collections) {
+        return {
+          success: false,
+          error: NO_BRIDGE_ERROR,
+        };
+      }
+      return this.api.collections.checkDuplicate(payload);
     },
   };
 }

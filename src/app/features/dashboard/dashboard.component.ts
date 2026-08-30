@@ -42,6 +42,10 @@ export class DashboardComponent implements OnInit {
     this.router.navigate(['/rate-plans']);
   }
 
+  navigateToCollection(): void {
+    this.router.navigate(['/collection']);
+  }
+
   async onLogout(): Promise<void> {
     await this.authState.logout();
   }

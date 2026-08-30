@@ -31,12 +31,13 @@ export function applySecurityPolicies(mainWindow: BrowserWindow, config: AppConf
       cspDirective = [
         "default-src 'self' 'unsafe-inline' 'unsafe-eval' http://localhost:4200 ws://localhost:4200 data: blob:",
         "script-src 'self' 'unsafe-inline' 'unsafe-eval' http://localhost:4200",
-        "style-src 'self' 'unsafe-inline' http://localhost:4200 fonts.googleapis.com",
-        "font-src 'self' data: http://localhost:4200 fonts.gstatic.com",
+        "style-src 'self' 'unsafe-inline' http://localhost:4200",
+        "font-src 'self' data: http://localhost:4200",
         "img-src 'self' data: blob: http://localhost:4200",
         "connect-src 'self' http://localhost:4200 ws://localhost:4200",
+        "object-src 'none'",
         "base-uri 'self'",
-        "form-action 'self'",
+        "frame-ancestors 'none'",
       ].join('; ');
     } else {
       // In production packaged mode: strictly offline, no remote hosts allowed
@@ -47,8 +48,9 @@ export function applySecurityPolicies(mainWindow: BrowserWindow, config: AppConf
         "font-src 'self' data:",
         "img-src 'self' data:",
         "connect-src 'self'",
+        "object-src 'none'",
         "base-uri 'self'",
-        "form-action 'self'",
+        "frame-ancestors 'none'",
       ].join('; ');
     }
 
