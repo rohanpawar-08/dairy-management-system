@@ -256,35 +256,40 @@ The **Dairy Management System** is a **100% offline-first Windows desktop applic
 
 ---
 
-### Module 12: Computed Farmer Ledger (सभासद खाते व लेजर)
-- **Description:** Real-time financial projection computed directly from source transactions.
-- **Computation Rule:**
-  $$\text{Current Ledger Balance} = \text{Opening Balance} + \sum(\text{Active Milk Collections}) + \sum(\text{Active Increasing Adjustments}) - \sum(\text{Active Decreasing Deductions}) - \sum(\text{Active Payments})$$
-- **Capabilities:**
-  - Real-time ledger calculation independent of settlement generation or cancellation.
-  - Chronological transaction statement display with running balance column.
-  - Filterable by date range and printable as an A4 ledger statement.
+### Module 12: Computed Farmer Ledger (सभाсад खाते व लेजर)
+- **Description:** Real-time financial projection computed dynamically directly from active source transactions without storing mutable projection tables or cached balances.
+- **Balance Sign Convention & Financial Invariants:**
+  - **Positive Balance ($> 0$ paise):** Dairy owes money to farmer (`PAYABLE_TO_FARMER` / `CREDIT`).
+  - **Negative Balance ($< 0$ paise):** Farmer owes money to dairy (`FARMER_DEBT_TO_DAIRY` / `DEBT`).
+  - **Zero Balance ($= 0$ paise):** Neutral / Settled (`NONE`).
+- **Computation Formula:**
+  $$\text{Current Ledger Balance (Paise)} = \text{Opening Balance} + \sum(\text{Active Milk Collections}) + \sum(\text{Active CREDITS}) - \sum(\text{Active DEDUCTIONS}) - \sum(\text{Active ADVANCES})$$
+- **Role-Based Access Control:**
+  - **Owner (मालक / ॲडमिन):** Full authorization to view ledgers, view adjustments, create non-milk adjustments, and perform soft voiding with mandatory justification.
+  - **Operator (ऑपरेटर):** Read-only access to search farmers, view historical statements, and view adjustment records. Creation or voiding of adjustments by an Operator is **strictly rejected by the main process**.
+- **Scope Demarcation:**
+  - Weekly billing settlement batches (`settlement_periods`, `weekly_settlements`) and cash/bank disbursements (`payments`, `payment_allocations`) are downstream features explicitly reserved for Stage 8. Stage 7 ledger projections operate continuously on active raw transactions regardless of settlement status.
 - **Acceptance Criteria:**
-  - *AC-12.1:* Ledger running balance strictly reconciles with the mathematical sum of all historical source transactions.
-  - *AC-12.2:* Cancelling a settlement period does not corrupt the source ledger projection.
+  - *AC-12.1:* Ledger running balance strictly reconciles with the exact integer paise sum of opening balance + active milk credits + active credits - active deductions - active advances across any date range.
+  - *AC-12.2:* Viewing ledger under Operator role succeeds, but any attempt by an Operator to create or void an adjustment is rejected by the main process with a bilingual permission error.
 
 ---
 
-### Module 13: Adjustments & Deductions (कपात व समायोजन)
-- **Description:** Non-milk financial charges and credits applied to farmer accounts.
-- **Categories:**
-  - `CATTLE_FEED` (पशुखाद्य खरेदी): Feed supply deduction (`DECREASE_PAYABLE`).
-  - `ADVANCE_LOAN` (उचल / ॲडव्हान्स): Cash advance given to farmer (`DECREASE_PAYABLE` when recovered).
-  - `VETERINARY_EXPENSE` (डॉक्टर / औषधोपचार): Medical charges (`DECREASE_PAYABLE`).
-  - `TRANSPORT_CHARGE` (वाहतूक खर्च): Milk transport deduction (`DECREASE_PAYABLE`).
-  - `BONUS` (बोनस / अनुदान): Subsidy or festive incentive (`INCREASE_PAYABLE`).
-  - `MANUAL_ADJUSTMENT` (इतर समायोजन): Custom credit/debit with mandatory reason.
-- **Lifecycle:**
-  - Active adjustments are included in ledger projections and settlement periods.
-  - Mistaken adjustments can be voided via `voidAdjustment` (non-destructive).
+### Module 13: Adjustments, Deductions & Advances (कपात, उचल व जमा समायोजन)
+- **Description:** Non-milk financial entries recorded against farmer accounts with atomic daily reference numbers.
+- **Entry Types & Categories:**
+  - **`ADVANCE` (रोख उचल):** Cash advance given to farmer (Reduces payable balance). Category: `CASH_ADVANCE`.
+  - **`DEDUCTION` (इतर कपात):** Goods or services supplied by dairy (Reduces payable balance). Categories: `CATTLE_FEED` (पशुखाद्य), `MEDICINE` (औषधोपचार), `LOAN_RECOVERY` (कर्ज वसुली), `EQUIPMENT` (साहित्य खरेदी), `OTHER_DEDUCTION` (इतर कपात).
+  - **`CREDIT` (जमा रक्कम):** Incentives or manual additions (Increases payable balance). Categories: `BONUS` (बोनस / अनुदान), `PRICE_CORRECTION` (दर दुरुस्ती), `OTHER_CREDIT` (इतर जमा).
+- **Reference Sequence & Monotonic Safety:**
+  - Reference numbers follow pattern `ADJ-YYYYMMDD-000001` tracked in `app_settings`. Daily counter increments inside the parent atomic SQLite transaction; failure or rollback restores the counter without sequence gaps.
+- **Non-Destructive Voiding & Immutability:**
+  - Physical SQL `DELETE` queries are prohibited by database trigger `trg_adj_prevent_delete`.
+  - Transaction fields (`reference_number`, `farmer_id`, `business_date`, `entry_type`, `category`, `amount_paise`, `reason`, `notes`, `created_by_user_id`, `created_at`) are immutable once saved, enforced by trigger `trg_adj_prevent_update`.
+  - Reversal requires Owner role and executes soft voiding (`status = 'VOIDED'`, `voided_by_user_id`, `voided_at`, `void_reason`). Voided adjustments are instantly excluded from running balance projections.
 - **Acceptance Criteria:**
-  - *AC-13.1:* Every adjustment explicitly records `business_effect` (`INCREASE_PAYABLE` or `DECREASE_PAYABLE`).
-  - *AC-13.2:* Voiding an adjustment updates `status = 'VOIDED'` and instantly recalculates the computed ledger.
+  - *AC-13.1:* Adjustments enforce entry types `ADVANCE`, `DEDUCTION`, `CREDIT` with valid category constraints, positive integer paise amounts (`amount_paise > 0`), mandatory reason, and atomic `ADJ-YYYYMMDD-000001` reference sequence.
+  - *AC-13.2:* Voiding an adjustment marks `status = 'VOIDED'`, logs `FARMER_ADJUSTMENT_VOIDED` to `audit_logs`, and immediately updates the computed ledger running balance without deleting database records.
 
 ---
 

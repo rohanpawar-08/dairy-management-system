@@ -44,6 +44,12 @@ export const routes: Routes = [
     canActivate: [authGuard],
   },
   {
+    path: 'ledger',
+    loadComponent: () =>
+      import('./features/ledger/ledger.component').then((m) => m.LedgerComponent),
+    canActivate: [authGuard],
+  },
+  {
     path: 'inconsistent',
     component: InconsistentStateComponent,
     canActivate: [inconsistentGuard],

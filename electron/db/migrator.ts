@@ -231,6 +231,7 @@ export async function runMigrationsAsync(
       db.prepare(
         'INSERT INTO schema_migrations (version, name, applied_at) VALUES (?, ?, ?)'
       ).run(migration.version, migration.name, appliedAt);
+      db.pragma(`user_version = ${migration.version}`);
     });
 
     try {
@@ -304,6 +305,7 @@ export function runMigrations(
       db.prepare(
         'INSERT INTO schema_migrations (version, name, applied_at) VALUES (?, ?, ?)'
       ).run(migration.version, migration.name, appliedAt);
+      db.pragma(`user_version = ${migration.version}`);
     });
 
     try {

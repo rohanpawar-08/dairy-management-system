@@ -65,8 +65,8 @@ describe('Database Layer & Incremental Migration Engine (Stage 2 Integration)', 
     applyAndVerifyPragmas(db);
 
     const result = runMigrations(db);
-    expect(result.appliedCount).toBe(4);
-    expect(result.totalVersion).toBe(4);
+    expect(result.appliedCount).toBe(5);
+    expect(result.totalVersion).toBe(5);
 
     // Verify all table names
     const tables = db
@@ -77,6 +77,7 @@ describe('Database Layer & Incremental Migration Engine (Stage 2 Integration)', 
 
     const tableNames = tables.map((t) => t.name);
     const expectedTables = [
+      'adjustments_and_deductions',
       'app_settings',
       'audit_logs',
       'backup_history',
@@ -101,7 +102,7 @@ describe('Database Layer & Incremental Migration Engine (Stage 2 Integration)', 
 
     // Verify version recorded in schema_migrations
     const applied = getAppliedMigrations(db);
-    expect(applied.length).toBe(4);
+    expect(applied.length).toBe(5);
     expect(applied[0].version).toBe(1);
     expect(applied[0].name).toBe('foundation');
     expect(applied[1].version).toBe(2);
@@ -110,6 +111,8 @@ describe('Database Layer & Incremental Migration Engine (Stage 2 Integration)', 
     expect(applied[2].name).toBe('rate_plans');
     expect(applied[3].version).toBe(4);
     expect(applied[3].name).toBe('shifts_and_collections');
+    expect(applied[4].version).toBe(5);
+    expect(applied[4].name).toBe('adjustments_and_ledger');
     expect(applied[0].applied_at).toBeDefined();
   });
 
@@ -118,19 +121,19 @@ describe('Database Layer & Incremental Migration Engine (Stage 2 Integration)', 
     applyAndVerifyPragmas(db);
 
     const firstRun = runMigrations(db);
-    expect(firstRun.appliedCount).toBe(4);
-    expect(firstRun.totalVersion).toBe(4);
+    expect(firstRun.appliedCount).toBe(5);
+    expect(firstRun.totalVersion).toBe(5);
 
     const secondRun = runMigrations(db);
     expect(secondRun.appliedCount).toBe(0);
-    expect(secondRun.totalVersion).toBe(4);
+    expect(secondRun.totalVersion).toBe(5);
 
     const thirdRun = runMigrations(db);
     expect(thirdRun.appliedCount).toBe(0);
-    expect(thirdRun.totalVersion).toBe(4);
+    expect(thirdRun.totalVersion).toBe(5);
 
     const applied = getAppliedMigrations(db);
-    expect(applied.length).toBe(4);
+    expect(applied.length).toBe(5);
   });
 
   it('preserves database schema across closing and reopening connection', () => {
@@ -146,14 +149,14 @@ describe('Database Layer & Incremental Migration Engine (Stage 2 Integration)', 
     try {
       applyAndVerifyPragmas(reopenedDb);
       const version = getCurrentMigrationVersion(reopenedDb);
-      expect(version).toBe(4);
+      expect(version).toBe(5);
 
       const tables = reopenedDb
         .prepare(
           "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
         )
         .all() as { name: string }[];
-      expect(tables.length).toBe(11);
+      expect(tables.length).toBe(12);
     } finally {
       reopenedDb.close();
     }

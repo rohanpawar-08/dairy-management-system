@@ -36,6 +36,12 @@ import type {
   VoidCollectionPayload,
   DuplicateCollectionCheckResult,
   RatePlanMilkType,
+  CreateAdjustmentPayload,
+  VoidAdjustmentPayload,
+  AdjustmentFilter,
+  GetFarmerLedgerPayload,
+  AdjustmentDto,
+  LedgerSummaryDto,
 } from '../shared/ipc-contracts';
 
 // Inlined channel constants so preload is completely self-contained in sandboxed renderer
@@ -81,6 +87,12 @@ const CHANNELS = {
   COLLECTION_GET_BY_RECEIPT: 'dairy:collection:get-by-receipt',
   COLLECTION_VOID: 'dairy:collection:void',
   COLLECTION_CHECK_DUPLICATE: 'dairy:collection:check-duplicate',
+  // Stage 7 Adjustment & Ledger Channels
+  ADJUSTMENT_CREATE: 'dairy:adjustment:create',
+  ADJUSTMENT_LIST: 'dairy:adjustment:list',
+  ADJUSTMENT_GET: 'dairy:adjustment:get',
+  ADJUSTMENT_VOID: 'dairy:adjustment:void',
+  LEDGER_GET_FARMER: 'dairy:ledger:get-farmer',
 } as const;
 
 /**
@@ -245,6 +257,30 @@ const dairyApi: DairyApiBridge = {
 
     checkDuplicate: (payload: { shiftId: number; farmerId: number; milkType: RatePlanMilkType }): Promise<IpcResponse<DuplicateCollectionCheckResult>> => {
       return ipcRenderer.invoke(CHANNELS.COLLECTION_CHECK_DUPLICATE, payload);
+    },
+  },
+
+  adjustments: {
+    create: (payload: CreateAdjustmentPayload): Promise<IpcResponse<AdjustmentDto>> => {
+      return ipcRenderer.invoke(CHANNELS.ADJUSTMENT_CREATE, payload);
+    },
+
+    list: (filter?: AdjustmentFilter): Promise<IpcResponse<AdjustmentDto[]>> => {
+      return ipcRenderer.invoke(CHANNELS.ADJUSTMENT_LIST, filter);
+    },
+
+    getById: (id: number): Promise<IpcResponse<AdjustmentDto>> => {
+      return ipcRenderer.invoke(CHANNELS.ADJUSTMENT_GET, id);
+    },
+
+    void: (payload: VoidAdjustmentPayload): Promise<IpcResponse<AdjustmentDto>> => {
+      return ipcRenderer.invoke(CHANNELS.ADJUSTMENT_VOID, payload);
+    },
+  },
+
+  ledger: {
+    getFarmerLedger: (payload: GetFarmerLedgerPayload): Promise<IpcResponse<LedgerSummaryDto>> => {
+      return ipcRenderer.invoke(CHANNELS.LEDGER_GET_FARMER, payload);
     },
   },
 };

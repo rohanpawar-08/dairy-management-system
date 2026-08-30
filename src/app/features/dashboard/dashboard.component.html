@@ -106,6 +106,21 @@
         </div>
       </mat-card>
 
+      <!-- Farmer Ledger & Adjustments -->
+      <mat-card class="module-card clickable" (click)="navigateToLedger()">
+        <div class="card-icon-box" style="background: #e8eaf6; color: #1a237e;">
+          <mat-icon>account_balance_wallet</mat-icon>
+        </div>
+        <div class="card-content-box">
+          <h3>{{ 'ledger.title' | translate }}</h3>
+          <p>{{ 'ledger.subtitle' | translate }}</p>
+          <button mat-flat-button color="primary" type="button">
+            <mat-icon>arrow_forward</mat-icon>
+            {{ 'ledger.title' | translate }}
+          </button>
+        </div>
+      </mat-card>
+
       <!-- Rate Plans (Owner Only) -->
       @if (authState.isOwner()) {
         <mat-card class="module-card clickable" (click)="navigateToRatePlans()">

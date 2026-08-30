@@ -37,6 +37,12 @@ import {
   VoidCollectionPayload,
   DuplicateCollectionCheckResult,
   RatePlanMilkType,
+  CreateAdjustmentPayload,
+  VoidAdjustmentPayload,
+  AdjustmentFilter,
+  GetFarmerLedgerPayload,
+  AdjustmentDto,
+  LedgerSummaryDto,
 } from '../../../../shared/ipc-contracts';
 
 const NO_BRIDGE_ERROR: IpcErrorDetails = {
@@ -522,6 +528,74 @@ export class ElectronBridgeService {
         };
       }
       return this.api.collections.checkDuplicate(payload);
+    },
+  };
+
+  /**
+   * Stage 7: Adjustments & Deductions IPC Methods
+   */
+  public readonly adjustments = {
+    create: async (
+      payload: CreateAdjustmentPayload
+    ): Promise<IpcResponse<AdjustmentDto>> => {
+      if (!this.api?.adjustments) {
+        return {
+          success: false,
+          error: NO_BRIDGE_ERROR,
+        };
+      }
+      return this.api.adjustments.create(payload);
+    },
+
+    list: async (
+      filter?: AdjustmentFilter
+    ): Promise<IpcResponse<AdjustmentDto[]>> => {
+      if (!this.api?.adjustments) {
+        return {
+          success: false,
+          error: NO_BRIDGE_ERROR,
+        };
+      }
+      return this.api.adjustments.list(filter);
+    },
+
+    getById: async (id: number): Promise<IpcResponse<AdjustmentDto>> => {
+      if (!this.api?.adjustments) {
+        return {
+          success: false,
+          error: NO_BRIDGE_ERROR,
+        };
+      }
+      return this.api.adjustments.getById(id);
+    },
+
+    void: async (
+      payload: VoidAdjustmentPayload
+    ): Promise<IpcResponse<AdjustmentDto>> => {
+      if (!this.api?.adjustments) {
+        return {
+          success: false,
+          error: NO_BRIDGE_ERROR,
+        };
+      }
+      return this.api.adjustments.void(payload);
+    },
+  };
+
+  /**
+   * Stage 7: Computed Farmer Ledger IPC Methods
+   */
+  public readonly ledger = {
+    getFarmerLedger: async (
+      payload: GetFarmerLedgerPayload
+    ): Promise<IpcResponse<LedgerSummaryDto>> => {
+      if (!this.api?.ledger) {
+        return {
+          success: false,
+          error: NO_BRIDGE_ERROR,
+        };
+      }
+      return this.api.ledger.getFarmerLedger(payload);
     },
   };
 }

@@ -108,7 +108,14 @@ app.whenReady().then(async () => {
                 sqliteRes.data?.stage5?.supersedeOk === true &&
                 sqliteRes.data?.stage5?.operatorResolveApprovedRateOk === true &&
                 sqliteRes.data?.stage5?.approvedPlanImmutableOk === true &&
-                sqliteRes.data?.stage5?.noHardDeleteOk === true,
+                sqliteRes.data?.stage5?.noHardDeleteOk === true &&
+                sqliteRes.data?.stage7?.migrationVersion5Ok === true &&
+                sqliteRes.data?.stage7?.tablesCount12Ok === true &&
+                sqliteRes.data?.stage7?.computedBalanceExact === true &&
+                sqliteRes.data?.stage7?.runningBalanceExact === true &&
+                sqliteRes.data?.stage7?.operatorMutationRejected === true &&
+                sqliteRes.data?.stage7?.adjustmentVoidOk === true &&
+                sqliteRes.data?.stage7?.hardDeleteRejected === true,
               ping: pingRes,
               sqlite: sqliteRes,
               version: versionRes,

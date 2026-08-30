@@ -1,0 +1,293 @@
+<div class="ledger-container">
+  <!-- Page Header & Search Bar -->
+  <div class="top-bar">
+    <div class="header-title">
+      <h1>
+        <mat-icon color="primary">account_balance_wallet</mat-icon>
+        <span>{{ i18n.t('ledger.title') }}</span>
+      </h1>
+      <p class="subtitle">{{ i18n.t('ledger.subtitle') }}</p>
+    </div>
+
+    <!-- Member Code Search Box -->
+    <div class="search-box">
+      <mat-form-field appearance="outline" class="search-field">
+        <mat-label>{{ i18n.t('farmers.searchPlaceholder') }}</mat-label>
+        <input
+          matInput
+          [formControl]="searchControl"
+          placeholder="उदा. 101"
+          (keyup.enter)="onSearch()"
+        />
+        <button mat-icon-button matSuffix (click)="onSearch()">
+          <mat-icon>search</mat-icon>
+        </button>
+      </mat-form-field>
+      <button mat-raised-button color="primary" class="search-btn" (click)="onSearch()">
+        <mat-icon>search</mat-icon>
+        <span>{{ i18n.t('common.search') }}</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Banners & Alert Badges -->
+  <div *ngIf="successMessage()" class="alert alert-success">
+    <mat-icon>check_circle</mat-icon>
+    <span>{{ successMessage() }}</span>
+  </div>
+
+  <div *ngIf="state.error()" class="alert alert-danger">
+    <mat-icon>error</mat-icon>
+    <span>{{ state.error() }}</span>
+  </div>
+
+  <!-- Loading Spinner -->
+  <div *ngIf="state.loading()" class="loading-overlay">
+    <mat-spinner diameter="48"></mat-spinner>
+    <span>{{ i18n.t('common.loading') }}</span>
+  </div>
+
+  <!-- Empty Prompt state -->
+  <div *ngIf="!state.hasSummary() && !state.loading()" class="empty-prompt-card">
+    <mat-icon class="large-icon">search</mat-icon>
+    <h3>{{ i18n.t('ledger.promptSearchTitle') }}</h3>
+    <p>{{ i18n.t('ledger.promptSearchDesc') }}</p>
+  </div>
+
+  <!-- Active Farmer Ledger Content -->
+  <div *ngIf="state.hasSummary() && state.summary() as s" class="ledger-content">
+    <!-- Farmer Header Card -->
+    <mat-card class="farmer-header-card">
+      <mat-card-content class="farmer-header-layout">
+        <div class="farmer-info">
+          <h2>
+            <span class="member-code-badge">{{ s.memberCode }}</span>
+            <span class="farmer-name">{{ s.farmerNameMr }}</span>
+            <span *ngIf="s.farmerNameEn" class="farmer-name-en">({{ s.farmerNameEn }})</span>
+          </h2>
+          <div class="status-tags">
+            <span class="chip" [class.chip-active]="s.isActive" [class.chip-inactive]="!s.isActive">
+              {{ s.isActive ? i18n.t('farmers.activeStatus') : i18n.t('farmers.inactiveStatus') }}
+            </span>
+          </div>
+        </div>
+
+        <!-- Action Buttons (OWNER ONLY) -->
+        <div class="header-actions">
+          <button
+            *ngIf="auth.isOwner() && s.isActive"
+            mat-raised-button
+            color="primary"
+            class="action-btn"
+            (click)="openAddAdjustmentDialog()"
+          >
+            <mat-icon>add_card</mat-icon>
+            <span>{{ i18n.t('ledger.addAdjustmentBtn') }}</span>
+          </button>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- KPI Summary Grid -->
+    <div class="kpi-grid">
+      <!-- 1. Opening Balance -->
+      <mat-card class="kpi-card">
+        <div class="kpi-header">
+          <span class="kpi-label">{{ i18n.t('farmers.openingBalance') }}</span>
+          <mat-icon class="kpi-icon">history</mat-icon>
+        </div>
+        <div class="kpi-value">{{ s.openingBalanceFormatted }}</div>
+      </mat-card>
+
+      <!-- 2. Milk Earnings -->
+      <mat-card class="kpi-card credit-kpi">
+        <div class="kpi-header">
+          <span class="kpi-label">{{ i18n.t('ledger.milkCredits') }}</span>
+          <mat-icon class="kpi-icon">local_shipping</mat-icon>
+        </div>
+        <div class="kpi-value">+{{ s.milkCreditsFormatted }}</div>
+      </mat-card>
+
+      <!-- 3. Additional Credits -->
+      <mat-card class="kpi-card credit-kpi">
+        <div class="kpi-header">
+          <span class="kpi-label">{{ i18n.t('ledger.adjustmentCredits') }}</span>
+          <mat-icon class="kpi-icon">add_circle</mat-icon>
+        </div>
+        <div class="kpi-value">+{{ s.adjustmentCreditsFormatted }}</div>
+      </mat-card>
+
+      <!-- 4. Deductions -->
+      <mat-card class="kpi-card debit-kpi">
+        <div class="kpi-header">
+          <span class="kpi-label">{{ i18n.t('ledger.totalDeductions') }}</span>
+          <mat-icon class="kpi-icon">remove_circle</mat-icon>
+        </div>
+        <div class="kpi-value">-{{ s.deductionsFormatted }}</div>
+      </mat-card>
+
+      <!-- 5. Advances -->
+      <mat-card class="kpi-card debit-kpi">
+        <div class="kpi-header">
+          <span class="kpi-label">{{ i18n.t('ledger.totalAdvances') }}</span>
+          <mat-icon class="kpi-icon">payments</mat-icon>
+        </div>
+        <div class="kpi-value">-{{ s.advancesFormatted }}</div>
+      </mat-card>
+
+      <!-- 6. Current Balance (Main Highlight) -->
+      <mat-card
+        class="kpi-card current-balance-kpi"
+        [class.payable-card]="s.balanceDirection === 'PAYABLE_TO_FARMER'"
+        [class.debt-card]="s.balanceDirection === 'FARMER_DEBT_TO_DAIRY'"
+      >
+        <div class="kpi-header">
+          <span class="kpi-label bold">{{ i18n.t('ledger.currentBalance') }}</span>
+          <mat-icon class="kpi-icon">account_balance</mat-icon>
+        </div>
+        <div class="kpi-value large-val">{{ s.currentBalanceFormatted }}</div>
+        <div class="balance-subtext">
+          <span *ngIf="s.balanceDirection === 'PAYABLE_TO_FARMER'" class="tag tag-payable">
+            <mat-icon>trending_up</mat-icon> {{ i18n.t('ledger.payableToFarmerSemantics') }}
+          </span>
+          <span *ngIf="s.balanceDirection === 'FARMER_DEBT_TO_DAIRY'" class="tag tag-debt">
+            <mat-icon>trending_down</mat-icon> {{ i18n.t('ledger.farmerDebtSemantics') }}
+          </span>
+          <span *ngIf="s.balanceDirection === 'NONE'" class="tag tag-settled">
+            <mat-icon>check_circle</mat-icon> {{ i18n.t('ledger.settledSemantics') }}
+          </span>
+        </div>
+      </mat-card>
+    </div>
+
+    <!-- Filter Toolbar -->
+    <mat-card class="filter-card">
+      <div class="filter-layout">
+        <div class="filter-inputs">
+          <mat-form-field appearance="outline" class="date-field">
+            <mat-label>{{ i18n.t('ledger.fromDate') }}</mat-label>
+            <input matInput type="date" [formControl]="fromDateControl" (change)="onApplyFilters()" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="date-field">
+            <mat-label>{{ i18n.t('ledger.toDate') }}</mat-label>
+            <input matInput type="date" [formControl]="toDateControl" (change)="onApplyFilters()" />
+          </mat-form-field>
+
+          <mat-checkbox [formControl]="includeVoidedControl" class="void-checkbox">
+            {{ i18n.t('ledger.includeVoided') }}
+          </mat-checkbox>
+        </div>
+
+        <button mat-button color="warn" (click)="onClearFilters()">
+          <mat-icon>clear_all</mat-icon>
+          <span>{{ i18n.t('ledger.clearFilters') }}</span>
+        </button>
+      </div>
+
+      <div *ngIf="s.fromDate" class="brought-forward-banner">
+        <span><strong>{{ i18n.t('ledger.broughtForwardBalance') }}:</strong> {{ s.broughtForwardBalanceFormatted }}</span>
+      </div>
+    </mat-card>
+
+    <!-- Transaction Ledger Table -->
+    <mat-card class="table-card">
+      <mat-card-header>
+        <mat-card-title>{{ i18n.t('ledger.transactionStatementTitle') }}</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <table mat-table [dataSource]="s.items" class="ledger-table full-width">
+          <!-- Business Date Column -->
+          <ng-container matColumnDef="businessDate">
+            <th mat-header-cell *mat-header-cellDef>{{ i18n.t('collection.businessDate') }}</th>
+            <td mat-cell *mat-cellDef="let element" [class.voided-row]="element.isVoided">
+              {{ element.businessDate }}
+            </td>
+          </ng-container>
+
+          <!-- Reference Number Column -->
+          <ng-container matColumnDef="referenceNumber">
+            <th mat-header-cell *mat-header-cellDef>{{ i18n.t('ledger.referenceNo') }}</th>
+            <td mat-cell *mat-cellDef="let element" class="mono bold" [class.voided-row]="element.isVoided">
+              {{ element.referenceNumber }}
+            </td>
+          </ng-container>
+
+          <!-- Source Type Column -->
+          <ng-container matColumnDef="sourceType">
+            <th mat-header-cell *mat-header-cellDef>{{ i18n.t('ledger.entryType') }}</th>
+            <td mat-cell *mat-cellDef="let element" [class.voided-row]="element.isVoided">
+              <span class="type-pill" [ngClass]="element.sourceType">
+                {{ formatSourceType(element.sourceType) }}
+              </span>
+            </td>
+          </ng-container>
+
+          <!-- Description Column -->
+          <ng-container matColumnDef="description">
+            <th mat-header-cell *mat-header-cellDef>{{ i18n.t('common.description') }}</th>
+            <td mat-cell *mat-cellDef="let element" [class.voided-row]="element.isVoided">
+              <span>{{ element.description }}</span>
+              <span *ngIf="element.isVoided" class="void-tag"> ({{ i18n.t('collection.voidedTag') }})</span>
+            </td>
+          </ng-container>
+
+          <!-- Credit (+) Column -->
+          <ng-container matColumnDef="credit">
+            <th mat-header-cell *mat-header-cellDef class="text-right">{{ i18n.t('ledger.credit') }} (+)</th>
+            <td mat-cell *mat-cellDef="let element" class="text-right credit-cell" [class.voided-row]="element.isVoided">
+              <span *ngIf="element.creditPaise > 0">+₹{{ (element.creditPaise / 100).toFixed(2) }}</span>
+              <span *ngIf="element.creditPaise === 0" class="dim-dash">-</span>
+            </td>
+          </ng-container>
+
+          <!-- Debit (-) Column -->
+          <ng-container matColumnDef="debit">
+            <th mat-header-cell *mat-header-cellDef class="text-right">{{ i18n.t('ledger.debit') }} (-)</th>
+            <td mat-cell *mat-cellDef="let element" class="text-right debit-cell" [class.voided-row]="element.isVoided">
+              <span *ngIf="element.debitPaise > 0">-₹{{ (element.debitPaise / 100).toFixed(2) }}</span>
+              <span *ngIf="element.debitPaise === 0" class="dim-dash">-</span>
+            </td>
+          </ng-container>
+
+          <!-- Running Balance Column -->
+          <ng-container matColumnDef="runningBalance">
+            <th mat-header-cell *mat-header-cellDef class="text-right">{{ i18n.t('ledger.runningBalance') }}</th>
+            <td
+              mat-cell
+              *mat-cellDef="let element"
+              class="text-right bold mono-num"
+              [class.positive-balance]="element.runningBalancePaise > 0"
+              [class.negative-balance]="element.runningBalancePaise < 0"
+            >
+              ₹{{ (element.runningBalancePaise / 100).toFixed(2) }}
+            </td>
+          </ng-container>
+
+          <!-- Actions Column -->
+          <ng-container matColumnDef="actions">
+            <th mat-header-cell *mat-header-cellDef class="text-center">{{ i18n.t('common.actions') }}</th>
+            <td mat-cell *mat-cellDef="let element" class="text-center">
+              <button
+                *ngIf="auth.isOwner() && !element.isVoided && (element.sourceType === 'CREDIT' || element.sourceType === 'DEDUCTION' || element.sourceType === 'ADVANCE')"
+                mat-icon-button
+                color="warn"
+                [title]="i18n.t('ledger.voidAdjustmentTitle')"
+                (click)="onVoidItem(element)"
+              >
+                <mat-icon>delete_forever</mat-icon>
+              </button>
+            </td>
+          </ng-container>
+
+          <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+          <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+        </table>
+
+        <div *ngIf="s.items.length === 0" class="no-records-box">
+          <p>{{ i18n.t('ledger.noTransactionsFound') }}</p>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </div>
+</div>

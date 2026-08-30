@@ -205,3 +205,21 @@
   4. **Strict Immutability & Database Triggers:** Every collection record snapshots `rate_plan_id`, `rate_applied_paise`, and `amount_paise`. SQLite trigger `trg_milk_collections_prevent_update` blocks direct modification of all 16 transaction fields. Voiding is non-destructive (`status = 'VOIDED'`), requires Owner authorization, and cannot be undone or re-voided. Hard deletion on `shifts` and `milk_collections` is blocked by database triggers.
   5. **Future Settlement Protection:** Collection voiding checks for active links to finalized settlement items (`settlement_items` / `weekly_settlements`) and rejects voiding with a clean bilingual domain error.
 - **Rationale:** Ensures tamper-proof financial records, collision-free receipts, and uninterrupted daily collection workflow while eliminating floating-point errors and historical data corruption.
+
+---
+
+### ADR-021: Non-Milk Financial Adjustments, Daily Monotonic Reference Sequence, Owner-Only Mutations, and Dynamic Computed Farmer Ledger
+- **Status:** Accepted
+- **Context:** Dairy operations require recording non-milk financial entries (cash advances, cattle feed sales, veterinary medicine, bonuses, price adjustments) and maintaining a real-time farmer ledger statement without stored balance cache drift or un-audited operator modifications.
+- **Decision:**
+  1. **Dynamic Computed Farmer Ledger:** Zero mutable `current_balance` column or ledger cache exists. Current balances and date-range statements are computed dynamically on demand from active raw source transactions (`farmers.opening_balance_paise`, active `milk_collections`, and active `adjustments_and_deductions`).
+  2. **Balance Sign Convention:**
+     - Positive balance ($> 0$ paise): `PAYABLE_TO_FARMER` (Dairy owes money to farmer).
+     - Negative balance ($< 0$ paise): `FARMER_DEBT_TO_DAIRY` (Farmer owes money to dairy).
+     - Zero balance ($= 0$ paise): `NONE` (Settled / Neutral).
+  3. **Integer Paise & Scaled Arithmetic:** Money is calculated and stored strictly as integer paise ($1\text{ INR} = 100\text{ paise}$). Floating-point currency math is prohibited across all main-process handlers and Angular services.
+  4. **Categorized Adjustment Entry:** Enforces `entry_type IN ('ADVANCE', 'DEDUCTION', 'CREDIT')` with 9 explicit business categories (`CASH_ADVANCE`, `CATTLE_FEED`, `MEDICINE`, `LOAN_RECOVERY`, `EQUIPMENT`, `OTHER_DEDUCTION`, `BONUS`, `PRICE_CORRECTION`, `OTHER_CREDIT`).
+  5. **Daily Monotonic Reference Sequence (`ADJ-YYYYMMDD-000001`):** Daily reference sequence counters are tracked in `app_settings` (`adj_counter_YYYYMMDD`) and incremented inside the parent atomic SQLite transaction. Transaction failure or rollback restores counter state without sequence gaps.
+  6. **Owner-Only RBAC Authority:** Adjustment creation and soft voiding are restricted to the `OWNER` role. Main-process IPC handlers verify session authority (`requireRole('OWNER')`); attempts by `OPERATOR` sessions are strictly rejected.
+  7. **Immutability & Non-Destructive Voiding:** Physical SQL `DELETE` queries are blocked by database trigger `trg_adj_prevent_delete`. Transaction fields are immutable once inserted (enforced by `trg_adj_prevent_update`). Reversals execute soft voiding (`status = 'VOIDED'`, `voided_by_user_id`, `voided_at`, `void_reason`).
+- **Rationale:** Ensures complete auditability, eliminates floating-point drift and balance cache corruption, protects against unauthorized operator mutations, and enforces strict financial precision.

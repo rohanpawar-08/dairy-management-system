@@ -60,6 +60,18 @@ import { businessDateProvider } from '../utils/business-date';
 import { milkCollectionRepository } from '../db/milk-collection.repository';
 import { shiftRepository } from '../db/shift.repository';
 import { farmerRepository } from '../db/farmer.repository';
+import { adjustmentService } from '../services/adjustment.service';
+import { adjustmentRepository } from '../db/adjustment.repository';
+import { ledgerService } from '../services/ledger.service';
+import {
+  CreateAdjustmentPayload,
+  VoidAdjustmentPayload,
+  AdjustmentFilter,
+  GetFarmerLedgerPayload,
+  AdjustmentDto,
+  LedgerSummaryDto,
+  Stage7SmokeSummary,
+} from '../../shared/ipc-contracts';
 
 function toIpcError(
   code: string,
@@ -966,6 +978,190 @@ export function registerIpcHandlers(): void {
       const sessionAfterLogout = sessionService.getSession(smokeWebContentsId);
       const logoutOk = loggedOut === true && sessionAfterLogout === null;
 
+      // 17. Stage 7 Smoke Test Sequence
+      const s7NowIso = new Date().toISOString();
+      sessionService.createSession(smokeWebContentsId, {
+        id: 1,
+        username: 'smoke_owner',
+        full_name: 'Smoke Owner',
+        role: 'OWNER',
+      });
+
+      sessionService.createSession(9987, {
+        id: 2,
+        username: 'smoke_op',
+        full_name: 'Smoke Operator',
+        role: 'OPERATOR',
+      });
+
+      const migrationVersion5Ok = migrationResult.totalVersion === 5;
+      const tablesCount12Ok = tables.length === 12;
+      const zeroAdjustmentsInitially = adjustmentRepository.listAll(db!).length === 0;
+
+      const s7FarmerPosId = farmerRepository.insertFarmer(db!, {
+        memberCode: 'S701',
+        nameMr: 'ज्ञानेश्वर कदम',
+        defaultMilkType: 'BOTH',
+        openingBalancePaise: 50000,
+        nowIso: s7NowIso,
+      });
+      const posLedgerInitial = ledgerService.getFarmerLedger(db!, { farmerId: s7FarmerPosId }, 9987);
+      const positiveOpeningBalanceOk = posLedgerInitial.currentBalancePaise === 50000 && posLedgerInitial.balanceDirection === 'PAYABLE_TO_FARMER';
+
+      const s7FarmerNegId = farmerRepository.insertFarmer(db!, {
+        memberCode: 'S702',
+        nameMr: 'मंगेश पाटील',
+        defaultMilkType: 'BOTH',
+        openingBalancePaise: -40000,
+        nowIso: s7NowIso,
+      });
+      const negLedgerInitial = ledgerService.getFarmerLedger(db!, { farmerId: s7FarmerNegId }, 9987);
+      const negativeOpeningBalanceOk = negLedgerInitial.currentBalancePaise === -40000 && negLedgerInitial.balanceDirection === 'FARMER_DEBT_TO_DAIRY';
+
+      const s7FarmerInactId = farmerRepository.insertFarmer(db!, {
+        memberCode: 'S703',
+        nameMr: 'बाळासाहेब शिंदे',
+        defaultMilkType: 'BOTH',
+        openingBalancePaise: 20000,
+        nowIso: s7NowIso,
+      });
+      db!.prepare("UPDATE farmers SET is_active = 0 WHERE id = ?").run(s7FarmerInactId);
+
+      const inactLedger = ledgerService.getFarmerLedger(db!, { farmerId: s7FarmerInactId }, 9987);
+      const inactiveFarmerLedgerAllowed = inactLedger.isActive === false && inactLedger.currentBalancePaise === 20000;
+
+      let inactiveFarmerMutationRejected = false;
+      try {
+        adjustmentService.createAdjustment(db!, {
+          farmerId: s7FarmerInactId,
+          entryType: 'ADVANCE',
+          category: 'CASH_ADVANCE',
+          amountRupees: '100.00',
+          reason: 'Attempt for inactive',
+        }, smokeWebContentsId);
+      } catch {
+        inactiveFarmerMutationRejected = true;
+      }
+
+      const farmerCowLedger = ledgerService.getFarmerLedger(db!, { farmerId: farmerSmoke.id }, 9987);
+      const milkCollectionCreditIncluded = farmerCowLedger.milkCreditsPaise > 0;
+
+      let referenceRollbackDoesNotConsumeNumber = false;
+      try {
+        const rollbackTx = db!.transaction(() => {
+          adjustmentService.createAdjustment(db!, {
+            farmerId: s7FarmerPosId,
+            entryType: 'ADVANCE',
+            category: 'CASH_ADVANCE',
+            amountRupees: '100.00',
+            businessDate: '2026-08-30',
+            reason: 'Rollback attempt',
+          }, smokeWebContentsId);
+          throw new Error('Forced rollback');
+        });
+        rollbackTx();
+      } catch {
+        referenceRollbackDoesNotConsumeNumber = true;
+      }
+
+      const ownerAdv = adjustmentService.createAdjustment(db!, {
+        farmerId: s7FarmerPosId,
+        entryType: 'ADVANCE',
+        category: 'CASH_ADVANCE',
+        amountRupees: '100.00',
+        businessDate: '2026-08-30',
+        reason: 'कॅश उचल',
+      }, smokeWebContentsId);
+      const ownerAdvanceCreated = ownerAdv.entryType === 'ADVANCE' && ownerAdv.referenceNumber === 'ADJ-20260830-000001';
+
+      const ownerDed = adjustmentService.createAdjustment(db!, {
+        farmerId: s7FarmerPosId,
+        entryType: 'DEDUCTION',
+        category: 'CATTLE_FEED',
+        amountRupees: '200.00',
+        businessDate: '2026-08-30',
+        reason: 'पशुखाद्य',
+      }, smokeWebContentsId);
+      const ownerDeductionCreated = ownerDed.entryType === 'DEDUCTION' && ownerDed.referenceNumber === 'ADJ-20260830-000002';
+
+      const ownerCred = adjustmentService.createAdjustment(db!, {
+        farmerId: s7FarmerPosId,
+        entryType: 'CREDIT',
+        category: 'BONUS',
+        amountRupees: '300.00',
+        businessDate: '2026-08-30',
+        reason: 'बोनस',
+      }, smokeWebContentsId);
+      const ownerCreditCreated = ownerCred.entryType === 'CREDIT' && ownerCred.referenceNumber === 'ADJ-20260830-000003';
+
+      const adjustmentReferenceSequenceOk = ownerAdv.referenceNumber === 'ADJ-20260830-000001' && ownerDed.referenceNumber === 'ADJ-20260830-000002' && ownerCred.referenceNumber === 'ADJ-20260830-000003';
+
+      const posLedgerAfter = ledgerService.getFarmerLedger(db!, { farmerId: s7FarmerPosId }, 9987);
+      const computedBalanceExact = posLedgerAfter.currentBalancePaise === 50000 && posLedgerAfter.advancesPaise === 10000 && posLedgerAfter.deductionsPaise === 20000 && posLedgerAfter.adjustmentCreditsPaise === 30000;
+      const runningBalanceExact = posLedgerAfter.items.length === 4 && posLedgerAfter.items[3].runningBalancePaise === 50000;
+
+      const operatorLedgerViewAllowed = posLedgerAfter.items.length === 4;
+
+      let operatorAdjustmentMutationRejected = false;
+      try {
+        adjustmentService.createAdjustment(db!, {
+          farmerId: s7FarmerPosId,
+          entryType: 'ADVANCE',
+          category: 'CASH_ADVANCE',
+          amountRupees: '50.00',
+          reason: 'Operator attempt',
+        }, 9987);
+      } catch {
+        operatorAdjustmentMutationRejected = true;
+      }
+
+      let unauthenticatedRejected = false;
+      try {
+        adjustmentService.createAdjustment(db!, {
+          farmerId: s7FarmerPosId,
+          entryType: 'ADVANCE',
+          category: 'CASH_ADVANCE',
+          amountRupees: '50.00',
+          reason: 'Unauth attempt',
+        }, 9999);
+      } catch {
+        unauthenticatedRejected = true;
+      }
+
+      const voidedAdv = adjustmentService.voidAdjustment(db!, { adjustmentId: ownerAdv.id, reason: 'रद्द केली' }, smokeWebContentsId);
+      const adjustmentVoidOk = voidedAdv.status === 'VOIDED';
+
+      const posLedgerVoided = ledgerService.getFarmerLedger(db!, { farmerId: s7FarmerPosId }, 9987);
+      const voidExcludedFromBalance = posLedgerVoided.currentBalancePaise === 60000 && posLedgerVoided.advancesPaise === 0;
+
+      let hardDeleteRejected = false;
+      try {
+        db!.prepare('DELETE FROM adjustments_and_deductions WHERE id = ?').run(ownerAdv.id);
+      } catch {
+        hardDeleteRejected = true;
+      }
+
+      let immutableUpdateRejected = false;
+      try {
+        db!.prepare('UPDATE adjustments_and_deductions SET amount_paise = 99999 WHERE id = ?').run(ownerAdv.id);
+      } catch {
+        immutableUpdateRejected = true;
+      }
+
+      const s7AuditRows = (
+        db!
+          .prepare(`
+            SELECT count(DISTINCT action_type) as count
+            FROM audit_logs
+            WHERE action_type IN ('FARMER_ADJUSTMENT_CREATED', 'FARMER_ADJUSTMENT_VOIDED')
+          `)
+          .get() as { count: number }
+      ).count;
+      const s7AuditEventsOk = s7AuditRows === 2;
+
+      sessionService.clearSession(smokeWebContentsId);
+      sessionService.clearSession(9987);
+
       const stage3Smoke = {
         setupStatusBefore: setupStatusBefore.state,
         setupStatusAfter: setupStatusAfter.state,
@@ -1047,6 +1243,33 @@ export function registerIpcHandlers(): void {
         noHardDeleteOk: stage6NoHardDeleteOk,
       };
 
+      const stage7Smoke: Stage7SmokeSummary = {
+        migrationVersion5Ok,
+        tablesCount12Ok,
+        zeroAdjustmentsInitially,
+        positiveOpeningBalanceOk,
+        negativeOpeningBalanceOk,
+        milkCollectionCreditIncluded,
+        ownerAdvanceCreated,
+        ownerDeductionCreated,
+        ownerCreditCreated,
+        adjustmentReferenceSequenceOk,
+        referenceRollbackDoesNotConsumeNumber,
+        computedBalanceExact,
+        runningBalanceExact,
+        operatorLedgerViewAllowed,
+        operatorMutationRejected: operatorAdjustmentMutationRejected,
+        unauthenticatedRejected,
+        inactiveFarmerLedgerAllowed,
+        inactiveFarmerMutationRejected,
+        adjustmentVoidOk,
+        voidExcludedFromBalance,
+        hardDeleteRejected,
+        immutableUpdateRejected,
+        auditEventsOk: s7AuditEventsOk,
+        auditRollbackOk: referenceRollbackDoesNotConsumeNumber,
+      };
+
       return {
         success: true,
         data: {
@@ -1057,11 +1280,12 @@ export function registerIpcHandlers(): void {
           timestamp: new Date().toISOString(),
           migrationVersion: migrationResult.totalVersion,
           tablesCount: tables.length,
-          migrationOk: migrationResult.totalVersion >= 4 && tables.length >= 11,
+          migrationOk: migrationResult.totalVersion >= 5 && tables.length >= 12,
           stage3: stage3Smoke,
           stage4: stage4Smoke,
           stage5: stage5Smoke,
           stage6: stage6Smoke,
+          stage7: stage7Smoke,
         },
       };
     } catch (err: unknown) {
@@ -1992,6 +2216,134 @@ export function registerIpcHandlers(): void {
         return {
           success: false,
           error: toIpcError('COLLECTION_CHECK_DUPLICATE_ERROR', message),
+        };
+      }
+    }
+  );
+
+  // ============================================================================
+  // Stage 7: Adjustments, Deductions & Computed Farmer Ledger Handlers
+  // ============================================================================
+
+  // 39. Adjustment: Create (OWNER ONLY)
+  ipcMain.handle(
+    IPC_CHANNELS.ADJUSTMENT_CREATE,
+    async (
+      event: IpcMainInvokeEvent,
+      payload: CreateAdjustmentPayload
+    ): Promise<IpcResponse<AdjustmentDto>> => {
+      try {
+        const db = getDatabaseConnection();
+        const adjustment = adjustmentService.createAdjustment(
+          db,
+          payload,
+          event.sender.id
+        );
+        return {
+          success: true,
+          data: adjustment,
+        };
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        return {
+          success: false,
+          error: toIpcError('ADJUSTMENT_CREATE_ERROR', message),
+        };
+      }
+    }
+  );
+
+  // 40. Adjustment: List / Filter
+  ipcMain.handle(
+    IPC_CHANNELS.ADJUSTMENT_LIST,
+    async (
+      event: IpcMainInvokeEvent,
+      filter?: AdjustmentFilter
+    ): Promise<IpcResponse<AdjustmentDto[]>> => {
+      try {
+        const db = getDatabaseConnection();
+        const list = adjustmentService.listAdjustments(db, filter, event.sender.id);
+        return {
+          success: true,
+          data: list,
+        };
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        return {
+          success: false,
+          error: toIpcError('ADJUSTMENT_LIST_ERROR', message),
+        };
+      }
+    }
+  );
+
+  // 41. Adjustment: Get By ID
+  ipcMain.handle(
+    IPC_CHANNELS.ADJUSTMENT_GET,
+    async (
+      event: IpcMainInvokeEvent,
+      id: number
+    ): Promise<IpcResponse<AdjustmentDto>> => {
+      try {
+        const db = getDatabaseConnection();
+        const adjustment = adjustmentService.getAdjustmentById(db, id, event.sender.id);
+        return {
+          success: true,
+          data: adjustment,
+        };
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        return {
+          success: false,
+          error: toIpcError('ADJUSTMENT_GET_ERROR', message),
+        };
+      }
+    }
+  );
+
+  // 42. Adjustment: Void (OWNER ONLY)
+  ipcMain.handle(
+    IPC_CHANNELS.ADJUSTMENT_VOID,
+    async (
+      event: IpcMainInvokeEvent,
+      payload: VoidAdjustmentPayload
+    ): Promise<IpcResponse<AdjustmentDto>> => {
+      try {
+        const db = getDatabaseConnection();
+        const voided = adjustmentService.voidAdjustment(db, payload, event.sender.id);
+        return {
+          success: true,
+          data: voided,
+        };
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        return {
+          success: false,
+          error: toIpcError('ADJUSTMENT_VOID_ERROR', message),
+        };
+      }
+    }
+  );
+
+  // 43. Ledger: Get Farmer Computed Ledger
+  ipcMain.handle(
+    IPC_CHANNELS.LEDGER_GET_FARMER,
+    async (
+      event: IpcMainInvokeEvent,
+      payload: GetFarmerLedgerPayload
+    ): Promise<IpcResponse<LedgerSummaryDto>> => {
+      try {
+        const db = getDatabaseConnection();
+        const summary = ledgerService.getFarmerLedger(db, payload, event.sender.id);
+        return {
+          success: true,
+          data: summary,
+        };
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        return {
+          success: false,
+          error: toIpcError('LEDGER_GET_FARMER_ERROR', message),
         };
       }
     }

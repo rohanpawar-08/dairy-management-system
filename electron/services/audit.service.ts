@@ -29,7 +29,9 @@ export type AuditActionType =
   | 'SHIFT_REOPENED'
   | 'MILK_COLLECTION_CREATED'
   | 'COLLECTION_DUPLICATE_CONFIRMED'
-  | 'MILK_COLLECTION_VOIDED';
+  | 'MILK_COLLECTION_VOIDED'
+  | 'FARMER_ADJUSTMENT_CREATED'
+  | 'FARMER_ADJUSTMENT_VOIDED';
 
 export interface AuditEventInput {
   userId?: number | null;

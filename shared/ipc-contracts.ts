@@ -45,6 +45,7 @@ export interface SqliteSmokeResult {
   stage4?: Stage4SmokeSummary;
   stage5?: Stage5SmokeSummary;
   stage6?: Stage6SmokeSummary;
+  stage7?: Stage7SmokeSummary;
 }
 
 export interface Stage3SmokeSummary {
@@ -426,6 +427,12 @@ export const IPC_CHANNELS = {
   COLLECTION_GET_BY_RECEIPT: 'dairy:collection:get-by-receipt',
   COLLECTION_VOID: 'dairy:collection:void',
   COLLECTION_CHECK_DUPLICATE: 'dairy:collection:check-duplicate',
+  // Stage 7 Adjustment & Ledger Channels
+  ADJUSTMENT_CREATE: 'dairy:adjustment:create',
+  ADJUSTMENT_LIST: 'dairy:adjustment:list',
+  ADJUSTMENT_GET: 'dairy:adjustment:get',
+  ADJUSTMENT_VOID: 'dairy:adjustment:void',
+  LEDGER_GET_FARMER: 'dairy:ledger:get-farmer',
 } as const;
 
 export type IpcChannel = (typeof IPC_CHANNELS)[keyof typeof IPC_CHANNELS];
@@ -667,4 +674,164 @@ export interface DairyApiBridge {
     void: (payload: VoidCollectionPayload) => Promise<IpcResponse<MilkCollectionDto>>;
     checkDuplicate: (payload: { shiftId: number; farmerId: number; milkType: RatePlanMilkType }) => Promise<IpcResponse<DuplicateCollectionCheckResult>>;
   };
+  // Stage 7 Adjustment & Ledger Methods
+  adjustments: {
+    create: (payload: CreateAdjustmentPayload) => Promise<IpcResponse<AdjustmentDto>>;
+    list: (filter?: AdjustmentFilter) => Promise<IpcResponse<AdjustmentDto[]>>;
+    getById: (id: number) => Promise<IpcResponse<AdjustmentDto>>;
+    void: (payload: VoidAdjustmentPayload) => Promise<IpcResponse<AdjustmentDto>>;
+  };
+  ledger: {
+    getFarmerLedger: (payload: GetFarmerLedgerPayload) => Promise<IpcResponse<LedgerSummaryDto>>;
+  };
+}
+
+// Stage 7 Adjustment & Ledger DTOs & Contracts
+export type AdjustmentEntryType = 'ADVANCE' | 'DEDUCTION' | 'CREDIT';
+export type AdjustmentCategory =
+  | 'CASH_ADVANCE'
+  | 'CATTLE_FEED'
+  | 'MEDICINE'
+  | 'LOAN_RECOVERY'
+  | 'EQUIPMENT'
+  | 'OTHER_DEDUCTION'
+  | 'BONUS'
+  | 'PRICE_CORRECTION'
+  | 'OTHER_CREDIT';
+
+export type AdjustmentStatus = 'ACTIVE' | 'VOIDED';
+
+export interface AdjustmentDto {
+  id: number;
+  referenceNumber: string;
+  farmerId: number;
+  farmerMemberCode: string;
+  farmerNameMr: string;
+  farmerNameEn: string | null;
+  businessDate: string; // YYYY-MM-DD
+  entryType: AdjustmentEntryType;
+  category: AdjustmentCategory;
+  categoryLabelMr: string;
+  categoryLabelEn: string;
+  amountPaise: number;
+  amountRupeesFormatted: string;
+  reason: string;
+  notes: string | null;
+  status: AdjustmentStatus;
+  createdByUserId: number;
+  createdByName: string;
+  createdAt: string;
+  voidedByUserId: number | null;
+  voidedByName: string | null;
+  voidedAt: string | null;
+  voidReason: string | null;
+  updatedAt: string;
+}
+
+export interface CreateAdjustmentPayload {
+  farmerId?: number;
+  memberCode?: string;
+  businessDate?: string; // YYYY-MM-DD
+  entryType: AdjustmentEntryType;
+  category: AdjustmentCategory;
+  amountRupees: string | number;
+  reason: string;
+  notes?: string | null;
+}
+
+export interface VoidAdjustmentPayload {
+  adjustmentId: number;
+  reason: string;
+}
+
+export interface AdjustmentFilter {
+  farmerId?: number;
+  memberCode?: string;
+  entryType?: AdjustmentEntryType;
+  status?: AdjustmentStatus;
+  fromDate?: string;
+  toDate?: string;
+}
+
+export type LedgerSourceType = 'OPENING_BALANCE' | 'MILK_COLLECTION' | 'CREDIT' | 'DEDUCTION' | 'ADVANCE';
+
+export interface LedgerItemDto {
+  id: string; // e.g. "OB-1", "MC-101", "ADJ-201"
+  sourceType: LedgerSourceType;
+  sourceId: number;
+  referenceNumber: string;
+  businessDate: string; // YYYY-MM-DD
+  description: string;
+  creditPaise: number;
+  debitPaise: number;
+  signedAmountPaise: number; // + for credit to farmer, - for debit from farmer
+  runningBalancePaise: number;
+  status: 'ACTIVE' | 'VOIDED';
+  createdAt: string;
+  isVoided?: boolean;
+}
+
+export interface LedgerSummaryDto {
+  farmerId: number;
+  memberCode: string;
+  farmerNameMr: string;
+  farmerNameEn: string | null;
+  isActive: boolean;
+  openingBalancePaise: number;
+  openingBalanceFormatted: string;
+  milkCreditsPaise: number;
+  milkCreditsFormatted: string;
+  adjustmentCreditsPaise: number;
+  adjustmentCreditsFormatted: string;
+  deductionsPaise: number;
+  deductionsFormatted: string;
+  advancesPaise: number;
+  advancesFormatted: string;
+  netMovementPaise: number;
+  netMovementFormatted: string;
+  currentBalancePaise: number;
+  currentBalanceFormatted: string;
+  balanceDirection: BalanceDirection;
+  broughtForwardBalancePaise: number;
+  broughtForwardBalanceFormatted: string;
+  fromDate: string | null;
+  toDate: string | null;
+  asOfDate: string;
+  items: LedgerItemDto[];
+}
+
+export interface GetFarmerLedgerPayload {
+  farmerId?: number;
+  memberCode?: string;
+  fromDate?: string;
+  toDate?: string;
+  asOfDate?: string;
+  includeVoided?: boolean;
+}
+
+export interface Stage7SmokeSummary {
+  migrationVersion5Ok: boolean;
+  tablesCount12Ok: boolean;
+  zeroAdjustmentsInitially: boolean;
+  positiveOpeningBalanceOk: boolean;
+  negativeOpeningBalanceOk: boolean;
+  milkCollectionCreditIncluded: boolean;
+  ownerAdvanceCreated: boolean;
+  ownerDeductionCreated: boolean;
+  ownerCreditCreated: boolean;
+  adjustmentReferenceSequenceOk: boolean;
+  referenceRollbackDoesNotConsumeNumber: boolean;
+  computedBalanceExact: boolean;
+  runningBalanceExact: boolean;
+  operatorLedgerViewAllowed: boolean;
+  operatorMutationRejected: boolean;
+  unauthenticatedRejected: boolean;
+  inactiveFarmerLedgerAllowed: boolean;
+  inactiveFarmerMutationRejected: boolean;
+  adjustmentVoidOk: boolean;
+  voidExcludedFromBalance: boolean;
+  hardDeleteRejected: boolean;
+  immutableUpdateRejected: boolean;
+  auditEventsOk: boolean;
+  auditRollbackOk: boolean;
 }

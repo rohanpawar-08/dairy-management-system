@@ -46,6 +46,10 @@ export class DashboardComponent implements OnInit {
     this.router.navigate(['/collection']);
   }
 
+  navigateToLedger(): void {
+    this.router.navigate(['/ledger']);
+  }
+
   async onLogout(): Promise<void> {
     await this.authState.logout();
   }

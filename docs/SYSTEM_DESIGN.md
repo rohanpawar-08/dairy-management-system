@@ -99,10 +99,20 @@ $$\text{Amount (Paise)} = \text{ROUND\_HALF\_UP}\left(\frac{Q_{\text{mL}} \times
 
 *Rounding Rule:* The calculation engine eliminates binary floating-point drift using exact integer / BigInt arithmetic with `ROUND_HALF_UP` on both the rate per litre and final collection amount. All rates and amounts are stored as integer paise.
 
-### 3.3 Explicit Financial Terminology
-- `INCREASE_PAYABLE`: Increases the net balance owed by the dairy to the farmer (e.g., active milk deliveries, bonuses, positive incentives).
-- `DECREASE_PAYABLE`: Decreases the net balance owed to the farmer (e.g., cattle feed, loan recovery, transport charges, veterinary fees).
-- **Farmer Opening Balance Sign:** Positive integer paise indicates dairy payable to farmer; negative integer paise indicates farmer debt/advance to dairy.
+### 3.3 Computed Farmer Ledger & Adjustment Model (Stage 7)
+- **No Stored Balance Cache:** The system maintains **zero stored balance cache** or mutable projection table for farmer balances. Every ledger statement and current balance is dynamically computed directly from raw, immutable source records (`farmers.opening_balance_paise`, active `milk_collections`, and active `adjustments_and_deductions`).
+- **Balance Sign Convention:**
+  - Positive balance ($> 0$ paise): `PAYABLE_TO_FARMER` (Dairy owes money to farmer).
+  - Negative balance ($< 0$ paise): `FARMER_DEBT_TO_DAIRY` (Farmer owes money to dairy).
+  - Zero balance ($= 0$ paise): `NONE` (Settled / Neutral).
+- **Dynamic Ledger Formula:**
+  $$\text{Current Balance} = \text{opening\_balance\_paise} + \sum(\text{ACTIVE milk collections}) + \sum(\text{ACTIVE CREDITS}) - \sum(\text{ACTIVE DEDUCTIONS}) - \sum(\text{ACTIVE ADVANCES})$$
+- **Brought-Forward & Date-Range Running Balance:**
+  - For a date filter range $[D_{\text{start}}, D_{\text{end}}]$, the brought-forward balance is computed as:
+    $$\text{Brought Forward Balance} = \text{opening\_balance\_paise} + \sum_{t < D_{\text{start}}}(\text{ACTIVE milk}) + \sum_{t < D_{\text{start}}}(\text{ACTIVE CREDITS}) - \sum_{t < D_{\text{start}}}(\text{ACTIVE DEDUCTIONS}) - \sum_{t < D_{\text{start}}}(\text{ACTIVE ADVANCES})$$
+  - Items within $[D_{\text{start}}, D_{\text{end}}]$ are sorted chronologically (`business_date ASC, created_at ASC, id ASC`) and continuous running balances are projected step-by-step starting from $\text{Brought Forward Balance}$.
+- **Monotonic Adjustment Reference Numbering (`ADJ-YYYYMMDD-000001`):**
+  - Daily counters are maintained in `app_settings` (key `adj_counter_YYYYMMDD`) and incremented inside the parent atomic SQLite transaction. Transaction failure or rollback restores the counter state without gap consumption.
 
 ---
 
@@ -288,8 +298,6 @@ CREATE TABLE IF NOT EXISTS milk_collections (
     quantity_ml INTEGER NOT NULL CHECK (quantity_ml > 0),
     fat_x100 INTEGER NOT NULL CHECK (fat_x100 > 0),
     snf_x100 INTEGER NOT NULL CHECK (snf_x100 > 0),
-    rate_plan_id INTEGER NOT NULL REFERENCES rate_plans(id),
-    rate_applied_paise INTEGER NOT NULL CHECK (rate_applied_paise > 0),
     amount_paise INTEGER NOT NULL CHECK (amount_paise > 0),
     duplicate_confirmed INTEGER NOT NULL DEFAULT 0 CHECK (duplicate_confirmed IN (0, 1)),
     duplicate_reason TEXT,
@@ -359,26 +367,127 @@ BEGIN
 END;
 
 -- ============================================================================
--- 9. Adjustments & Deductions
+-- 9. Adjustments & Deductions (Migration 005)
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS adjustments_and_deductions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    reference_number TEXT UNIQUE NOT NULL CHECK (length(trim(reference_number)) > 0),
     farmer_id INTEGER NOT NULL REFERENCES farmers(id),
-    adjustment_type TEXT NOT NULL CHECK (adjustment_type IN ('CATTLE_FEED', 'ADVANCE_LOAN', 'VETERINARY_EXPENSE', 'TRANSPORT_CHARGE', 'BONUS', 'MANUAL_ADJUSTMENT')),
-    business_effect TEXT NOT NULL CHECK (business_effect IN ('INCREASE_PAYABLE', 'DECREASE_PAYABLE')),
+    business_date TEXT NOT NULL CHECK (
+        length(business_date) = 10
+        AND business_date GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'
+        AND date(business_date) IS NOT NULL
+        AND date(business_date) = business_date
+    ),
+    entry_type TEXT NOT NULL CHECK (entry_type IN ('ADVANCE', 'DEDUCTION', 'CREDIT')),
+    category TEXT NOT NULL CHECK (
+        category IN (
+            'CASH_ADVANCE',
+            'CATTLE_FEED',
+            'MEDICINE',
+            'LOAN_RECOVERY',
+            'EQUIPMENT',
+            'OTHER_DEDUCTION',
+            'BONUS',
+            'PRICE_CORRECTION',
+            'OTHER_CREDIT'
+        )
+    ),
     amount_paise INTEGER NOT NULL CHECK (amount_paise > 0),
-    business_date TEXT NOT NULL,
-    description TEXT NOT NULL,
+    reason TEXT NOT NULL CHECK (length(trim(reason)) > 0),
+    notes TEXT,
     status TEXT NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'VOIDED')),
-    voided_at TEXT,
-    voided_by_user_id INTEGER REFERENCES users(id),
-    void_reason TEXT,
     created_by_user_id INTEGER NOT NULL REFERENCES users(id),
-    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    voided_by_user_id INTEGER REFERENCES users(id),
+    voided_at TEXT,
+    void_reason TEXT,
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    CHECK (
+        (entry_type = 'ADVANCE' AND category IN ('CASH_ADVANCE')) OR
+        (entry_type = 'DEDUCTION' AND category IN ('CATTLE_FEED', 'MEDICINE', 'LOAN_RECOVERY', 'EQUIPMENT', 'OTHER_DEDUCTION')) OR
+        (entry_type = 'CREDIT' AND category IN ('BONUS', 'PRICE_CORRECTION', 'OTHER_CREDIT'))
+    ),
+    CHECK (
+        (
+            status = 'ACTIVE'
+            AND voided_by_user_id IS NULL
+            AND voided_at IS NULL
+            AND void_reason IS NULL
+        )
+        OR
+        (
+            status = 'VOIDED'
+            AND voided_by_user_id IS NOT NULL
+            AND voided_at IS NOT NULL
+            AND length(trim(voided_at)) > 0
+            AND datetime(voided_at) IS NOT NULL
+            AND void_reason IS NOT NULL
+            AND length(trim(void_reason)) > 0
+        )
+    )
 );
 
-CREATE INDEX IF NOT EXISTS idx_adjustments_farmer_date ON adjustments_and_deductions(farmer_id, business_date);
-CREATE INDEX IF NOT EXISTS idx_adjustments_status ON adjustments_and_deductions(status);
+-- 5 Enforced Indexes
+CREATE INDEX IF NOT EXISTS idx_adj_farmer_date ON adjustments_and_deductions(farmer_id, business_date);
+CREATE INDEX IF NOT EXISTS idx_adj_status ON adjustments_and_deductions(status);
+CREATE INDEX IF NOT EXISTS idx_adj_ref ON adjustments_and_deductions(reference_number);
+CREATE INDEX IF NOT EXISTS idx_adj_entry_type ON adjustments_and_deductions(entry_type);
+CREATE INDEX IF NOT EXISTS idx_adj_created_at ON adjustments_and_deductions(created_at);
+
+-- Integrity Trigger 1: Prevent Hard SQL Delete
+CREATE TRIGGER IF NOT EXISTS trg_adj_prevent_delete
+BEFORE DELETE ON adjustments_and_deductions
+BEGIN
+    SELECT RAISE(ABORT, 'Hard deletion of adjustment records is strictly prohibited.');
+END;
+
+-- Integrity Trigger 2: Enforce Voiding Lifecycle (ONLY ACTIVE -> VOIDED allowed, block all other updates)
+CREATE TRIGGER IF NOT EXISTS trg_adj_prevent_update
+BEFORE UPDATE ON adjustments_and_deductions
+FOR EACH ROW
+BEGIN
+    -- 1. Voided adjustments are immutable and can never be updated or reactivated
+    SELECT CASE
+        WHEN OLD.status = 'VOIDED'
+        THEN RAISE(ABORT, 'Voided adjustments are immutable and cannot be modified.')
+    END;
+
+    -- 2. Prevent invalid status transitions (only ACTIVE -> VOIDED permitted)
+    SELECT CASE
+        WHEN NOT (OLD.status = 'ACTIVE' AND NEW.status = 'VOIDED')
+        THEN RAISE(ABORT, 'Adjustment updates are prohibited except for voiding an active adjustment.')
+    END;
+
+    -- 3. Prevent modification of immutable transaction snapshot fields
+    SELECT CASE
+        WHEN OLD.id != NEW.id
+          OR OLD.reference_number != NEW.reference_number
+          OR OLD.farmer_id != NEW.farmer_id
+          OR OLD.business_date != NEW.business_date
+          OR OLD.entry_type != NEW.entry_type
+          OR OLD.category != NEW.category
+          OR OLD.amount_paise != NEW.amount_paise
+          OR OLD.reason != NEW.reason
+          OR (OLD.notes IS NULL AND NEW.notes IS NOT NULL)
+          OR (OLD.notes IS NOT NULL AND NEW.notes IS NULL)
+          OR (OLD.notes != NEW.notes)
+          OR OLD.created_by_user_id != NEW.created_by_user_id
+          OR OLD.created_at != NEW.created_at
+        THEN RAISE(ABORT, 'Adjustment transaction snapshot is immutable and cannot be modified.')
+    END;
+
+    -- 4. Require complete valid void metadata when voiding an active adjustment
+    SELECT CASE
+        WHEN NEW.voided_by_user_id IS NULL
+          OR NEW.voided_at IS NULL
+          OR length(trim(NEW.voided_at)) = 0
+          OR datetime(NEW.voided_at) IS NULL
+          OR NEW.void_reason IS NULL
+          OR length(trim(NEW.void_reason)) = 0
+        THEN RAISE(ABORT, 'Voiding an adjustment requires voided_by_user_id, a valid non-empty voided_at timestamp, and a non-empty void_reason.')
+    END;
+END;
 
 -- ============================================================================
 -- 10. Settlement Periods (Weekly Batch Master)

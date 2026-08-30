@@ -23,6 +23,7 @@
     "test:farmers": "node scripts/run-farmers-tests.js",
     "test:rates": "node scripts/run-rates-tests.js",
     "test:collection": "node scripts/run-collection-tests.js",
+    "test:ledger": "node scripts/run-ledger-tests.js",
     "test:ipc-smoke": "npm run build && node scripts/run-ipc-smoke.js",
     "build:smoke-pack": "npm run build && node scripts/run-smoke-pack.js",
     "pack:dir": "electron-builder --dir --config electron-builder.yml --publish never",

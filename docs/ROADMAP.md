@@ -14,7 +14,7 @@ Each stage represents an **independently testable milestone**. Development proce
 
 ## 📅 Stage-by-Stage Implementation Plan
 
-### Stage 0: Documentation & Project Governance *(CURRENT)*
+### Stage 0: Documentation & Project Governance *(COMPLETED)*
 - **Objective:** Establish comprehensive product requirements, system design, 17-table schema, precision rules, and governance policies before writing code.
 - **Entry Requirements:** Access to project workspace and original reference materials.
 - **Deliverables:**
@@ -146,23 +146,26 @@ Each stage represents an **independently testable milestone**. Development proce
 
 ---
 
-### Stage 7: Adjustments, Deductions & Computed Farmer Ledger *(NEXT ACTIVE STAGE)*
-- **Objective:** Implement non-milk adjustments (`INCREASE_PAYABLE` / `DECREASE_PAYABLE`) and the real-time computed farmer ledger.
+### Stage 7: Adjustments, Deductions, Advances & Computed Farmer Ledger *(COMPLETED)*
+- **Objective:** Implement non-milk financial adjustments (`ADVANCE`, `DEDUCTION`, `CREDIT`), daily reference sequence `ADJ-YYYYMMDD-000001`, and the real-time computed farmer ledger projection.
 - **Entry Requirements:** Stage 6 verified.
 - **Deliverables:**
-  - Migration `005_adjustments.sql` creating `adjustments_and_deductions` table.
-  - `AdjustmentsRepository` supporting `CATTLE_FEED`, `ADVANCE_LOAN`, `VETERINARY_EXPENSE`, `TRANSPORT_CHARGE`, `BONUS`, `MANUAL_ADJUSTMENT`.
-  - Non-destructive `voidAdjustment` operation with audit logging.
-  - `LedgerProjectionService` computing running balances directly from source transactions:
-    $$\text{Balance} = \text{Opening Balance} + \sum(\text{Active Collections}) + \sum(\text{Active Increases}) - \sum(\text{Active Decreases}) - \sum(\text{Active Payments})$$
-  - Farmer Ledger UI with chronological transaction statement.
+  - [x] Migration `005_adjustments_and_ledger.sql` creating `adjustments_and_deductions` table with 5 indexes and 2 integrity triggers (`trg_adj_prevent_delete`, `trg_adj_prevent_update`).
+  - [x] Reference numbering service (`AdjustmentNumberService`) generating atomic `ADJ-YYYYMMDD-000001` sequence (rollback does not consume counter).
+  - [x] Backend repositories (`AdjustmentRepository`, `LedgerRepository`) and services (`AdjustmentService`, `LedgerService`) supporting Owner RBAC, integer paise arithmetic, and non-destructive voiding.
+  - [x] Audit trail integration recording `FARMER_ADJUSTMENT_CREATED` and `FARMER_ADJUSTMENT_VOIDED` events.
+  - [x] Farmer Ledger UI (`/ledger`) with real-time KPI summary cards, transaction history table, date range filters, and Owner adjustment entry / voiding dialogs.
+  - [x] Dedicated test runner `npm run test:ledger` covering integer balance calculations, brought-forward balances, inactive farmer ledger access, RBAC enforcement, and trigger immutability.
 - **Verification Commands:**
-  - `npm run test:ledger` (Verifies computed ledger math and checks that voided items are excluded).
-- **Exit Criteria:** Adjustments record with explicit business effects; ledger balances match mathematical sum of source records down to the exact paise.
+  - `npm run test:ledger` (All 22 unit and integration tests pass: 6 Angular specs + 16 backend Vitest specs).
+  - `npm run test` (All 254 tests pass across 50 test files: 97 Angular specs + 157 backend integration/unit specs).
+  - `npm run test:ipc-smoke` (Verifies Stage 1–7 IPC channels, SQLite migration 005, and ledger calculation in isolated Electron runtime).
+  - `npm run build:smoke-pack` (Verifies packaged executable launches and executes complete Stage 1–7 verification sequence).
+- **Exit Criteria:** Adjustments record with explicit financial categories; computed ledger balances match exact mathematical sum of source records down to integer paise (All criteria PASSED).
 
 ---
 
-### Stage 8: Weekly Settlement Batches & Payment Allocations
+### Stage 8: Weekly Settlement Batches & Payment Allocations *(NEXT ACTIVE STAGE)*
 - **Objective:** Automate weekly settlement period generation, frozen amount due calculation, non-destructive payment allocations, and collision-safe voucher/statement numbering.
 - **Entry Requirements:** Stage 7 verified.
 - **Deliverables:**
