@@ -12,7 +12,7 @@ This document catalogs unresolved business parameters, domain data, and hardware
 
 ---
 
-## 🟢 Confirmed & Resolved Architectural Decisions (Stage 5 & Stage 7)
+## 🟢 Confirmed & Resolved Architectural Decisions (Stage 5, 7 & 8)
 
 1. **Pricing Strategy Method:** Confirmed `FORMULA` strategy.
 2. **Pricing Basis:** Confirmed `PER_PERCENT_POINT_PER_LITRE` basis.
@@ -20,6 +20,18 @@ This document catalogs unresolved business parameters, domain data, and hardware
 4. **Rate Management:** Owner-only versioned effective-date plans with draft $\rightarrow$ approve $\rightarrow$ clone $\rightarrow$ supersede lifecycle, SQLite overlap prevention triggers, and zero hard deletes.
 5. **Stage 7 Adjustment Entry Types & Reference Sequence:** Confirmed 3 entry types (`ADVANCE`, `DEDUCTION`, `CREDIT`) across 9 categories (`CASH_ADVANCE`, `CATTLE_FEED`, `MEDICINE`, `LOAN_RECOVERY`, `EQUIPMENT`, `OTHER_DEDUCTION`, `BONUS`, `PRICE_CORRECTION`, `OTHER_CREDIT`) with atomic daily reference numbers `ADJ-YYYYMMDD-000001`.
 6. **Stage 7 Computed Farmer Ledger & Sign Convention:** Confirmed dynamic computed farmer ledger projection directly from raw source transactions (`farmers.opening_balance_paise`, active `milk_collections`, and active `adjustments_and_deductions`) without stored balance cache. Positive balance ($> 0$ paise) = `PAYABLE_TO_FARMER`; negative balance ($< 0$ paise) = `FARMER_DEBT_TO_DAIRY`. Owner-only mutation authority and soft voiding with mandatory justification.
+7. **Stage 8 Settlement Architecture:**
+   - Weekly settlement periods use the dairy-configured `settlement_start_day`.
+   - Each period contains exactly seven calendar days.
+   - Settlement lifecycle is `DRAFT` $\rightarrow$ `FINALIZED` or `DRAFT` $\rightarrow$ `CANCELLED`.
+   - `FINALIZED` periods are immutable.
+   - Settlement previews are dynamic; snapshots are created only during finalization.
+8. **Stage 8 Payment Allocation:**
+   - Partial payments and multiple payments are supported.
+   - Payment allocation uses deterministic FIFO.
+   - Payment methods are `CASH`, `BANK_TRANSFER`, `UPI`, `CHEQUE`, and `OTHER`.
+   - Payment records are offline bookkeeping only and never initiate real transfers.
+   - Payment voiding is non-destructive.
 
 > ⚠️ **Test Fixtures Notice:** The sample figures used in test fixtures (e.g. Cow FAT ₹8.50 / SNF ₹3.00, Buffalo FAT ₹9.00 / SNF ₹3.00) are automated test fixtures ONLY. They are not approved production rates. A clean production installation initializes with exactly zero rate plans.
 
@@ -43,7 +55,10 @@ This document catalogs unresolved business parameters, domain data, and hardware
 | **12** | **Target Printer Model** | What specific printer model (Make/Model) is installed at the pilot centre for printing daily registers and weekly bills? | Validates driver compatibility and margin settings for A4 print spooling. | Standard Windows-compatible A4 laser/inkjet printer using system print dialogue. | 🟡 **Model Info Needed** |
 | **13** | **Pilot Deduction Categories** | What specific deduction and adjustment categories must be active during the 30-day pilot (e.g., Cattle Feed, Doctor/Medicine, Advances, Transport, Society Shares)? | Determines which deduction types must be pre-populated in system settings. | Resolved in Stage 7: `ADVANCE`, `DEDUCTION`, `CREDIT` entry types across 9 default categories (`CASH_ADVANCE`, `CATTLE_FEED`, `MEDICINE`, `LOAN_RECOVERY`, `EQUIPMENT`, `OTHER_DEDUCTION`, `BONUS`, `PRICE_CORRECTION`, `OTHER_CREDIT`). | 🟢 **Resolved (Stage 7 Implementation)** |
 | **14** | **Portable Backup Encryption** | Should backup files exported to external USB drives be password-encrypted, given that machine-bound encryption keys could prevent restoration on a replacement PC after hardware failure? | Balances data privacy on lost USB drives against offline recovery portability. | Standard unencrypted SQLite backup files with integrity checksums until portable passphrase encryption is approved. | 🟡 **Needs Verification** |
-
+| **15** | **Stage 9 Printing Integration** | What is the A4 settlement statement design and payment voucher/receipt printing format? Does the printer hardware require ESC/POS support? | Determines printing architecture and drivers. | Defer to Stage 9 for resolution. | 🔴 **Pending Stage 9** |
+| **16** | **Bank/UPI Integration** | Is there any requirement for actual Bank/UPI API integration for automatic fund transfers? | Significant change to offline-only architecture and security requirements. | Payments remain offline bookkeeping only. | 🔴 **Pending Discussion** |
+| **17** | **Reporting/Dashboards** | What are the exact reporting/dashboard requirements for the pilot phase? | Scope of analytics and data export. | Standard tabular reports. | 🔴 **Pending Input** |
+| **18** | **Pilot Rollout** | What are the pilot validation and production rollout decisions? | Timelines and acceptance criteria for moving to production. | Defer to end of pilot. | 🔴 **Pending Input** |
 ---
 
 ## 📋 Input Collection Form for Dairy Owner

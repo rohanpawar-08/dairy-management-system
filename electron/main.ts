@@ -115,7 +115,20 @@ app.whenReady().then(async () => {
                 sqliteRes.data?.stage7?.runningBalanceExact === true &&
                 sqliteRes.data?.stage7?.operatorMutationRejected === true &&
                 sqliteRes.data?.stage7?.adjustmentVoidOk === true &&
-                sqliteRes.data?.stage7?.hardDeleteRejected === true,
+                sqliteRes.data?.stage7?.hardDeleteRejected === true &&
+                sqliteRes.data?.stage8?.migrationVersion6Ok === true &&
+                sqliteRes.data?.stage8?.tablesCount17Ok === true &&
+                sqliteRes.data?.stage8?.draftCreatedOk === true &&
+                sqliteRes.data?.stage8?.weeklyDateValidationOk === true &&
+                sqliteRes.data?.stage8?.previewCreatesNoSnapshots === true &&
+                sqliteRes.data?.stage8?.settlementFinalizedOk === true &&
+                sqliteRes.data?.stage8?.farmerSnapshotsExact === true &&
+                sqliteRes.data?.stage8?.paymentRecordedOk === true &&
+                sqliteRes.data?.stage8?.partialPaymentOk === true &&
+                sqliteRes.data?.stage8?.fifoAllocationOk === true &&
+                sqliteRes.data?.stage8?.paymentVoidOk === true &&
+                sqliteRes.data?.stage8?.settlementHardDeleteRejected === true &&
+                sqliteRes.data?.stage8?.paymentHardDeleteRejected === true,
               ping: pingRes,
               sqlite: sqliteRes,
               version: versionRes,

@@ -227,7 +227,7 @@ The **Dairy Management System** is a **100% offline-first Windows desktop applic
 - **Description:** Weekly accounting engine grouping milk deliveries and adjustments into finalized settlement statements.
 - **Settlement Architecture:**
   - **`settlement_periods`:** Weekly batch master (`period_start_date`, `period_end_date`, `status`: `DRAFT`, `FINALIZED`, `CANCELLED`). Enforces `period_start_date <= period_end_date` and a unique partial index ensuring only one active (non-cancelled) period exists per date range. The same period row transitions from `DRAFT` to `FINALIZED`.
-  - **`weekly_settlements`:** One settlement statement per farmer (`statement_number`, `opening_balance_snapshot_paise`, `amount_due_paise`, `payments_allocated_paise`, `outstanding_amount_paise`).
+  - **`weekly_settlements`:** One settlement statement per farmer (`statement_number`, `opening_balance_snapshot_paise`, `amount_due_paise`).
   - **`settlement_items`:** Immutable snapshot line items linking source collections and adjustments. When a settlement is cancelled, items transition `allocation_status` to `'RELEASED'` to preserve historical evidence while allowing source records to be included in a fresh settlement draft.
 - **Financial Invariants (Frozen at Finalization):**
   $$\text{Amount Due (Frozen)} = \text{Opening Balance Snapshot} + \text{Gross Milk Earnings} + \text{Increasing Adjustments} - \text{Decreasing Deductions}$$
@@ -248,7 +248,7 @@ The **Dairy Management System** is a **100% offline-first Windows desktop applic
   - Record payment voucher (`receipt_number`, `amount_paid_paise`, `payment_date`, `payment_mode`, `reference_number`, `notes`, `status`: `ACTIVE`/`VOIDED`).
   - Payment Modes: `CASH`, `BANK_TRANSFER`, `UPI`, `CHEQUE`, `OTHER`.
   - Payment Allocation: Non-destructive allocation across finalized settlements via `payment_allocations` (`status`: `ACTIVE`/`VOIDED`).
-  - Full payment sets that settlement's positive `outstanding_amount_paise` to zero and transitions its status to `PAID` (without altering the farmer's overall ledger projection).
+  - Full payment is calculated dynamically. Payment records reduce the dynamically computed outstanding balance.
   - Voiding a payment via `voidPayment` marks the payment and its allocations `VOIDED` in a single transaction and recalculates settlement cached totals.
 - **Acceptance Criteria:**
   - *AC-11.1:* Payment allocation cannot exceed the payment's unallocated amount or the settlement's positive outstanding amount.

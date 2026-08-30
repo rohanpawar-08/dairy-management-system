@@ -50,6 +50,12 @@ export const routes: Routes = [
     canActivate: [authGuard],
   },
   {
+    path: 'settlements',
+    loadComponent: () =>
+      import('./features/settlements/settlements.component').then((m) => m.SettlementsComponent),
+    canActivate: [authGuard],
+  },
+  {
     path: 'inconsistent',
     component: InconsistentStateComponent,
     canActivate: [inconsistentGuard],

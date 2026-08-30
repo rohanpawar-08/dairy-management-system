@@ -109,7 +109,7 @@
       <!-- Farmer Ledger & Adjustments -->
       <mat-card class="module-card clickable" (click)="navigateToLedger()">
         <div class="card-icon-box" style="background: #e8eaf6; color: #1a237e;">
-          <mat-icon>account_balance_wallet</mat-icon>
+          <mat-icon>receipt_long</mat-icon>
         </div>
         <div class="card-content-box">
           <h3>{{ 'ledger.title' | translate }}</h3>
@@ -117,6 +117,21 @@
           <button mat-flat-button color="primary" type="button">
             <mat-icon>arrow_forward</mat-icon>
             {{ 'ledger.title' | translate }}
+          </button>
+        </div>
+      </mat-card>
+
+      <!-- Weekly Settlements & Payments -->
+      <mat-card class="module-card clickable" (click)="navigateToSettlements()">
+        <div class="card-icon-box" style="background: #fff3e0; color: #e65100;">
+          <mat-icon>account_balance_wallet</mat-icon>
+        </div>
+        <div class="card-content-box">
+          <h3>{{ 'settlements.pageTitle' | translate }}</h3>
+          <p>{{ 'settlements.pageSubtitle' | translate }}</p>
+          <button mat-flat-button color="primary" type="button">
+            <mat-icon>arrow_forward</mat-icon>
+            {{ 'settlements.pageTitle' | translate }}
           </button>
         </div>
       </mat-card>

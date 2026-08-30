@@ -262,11 +262,14 @@ export class FarmerRepository {
         .get(table) as { count: number };
 
       if (tableExists && tableExists.count > 0) {
-        // Query non-voided transactions for this farmer
+        const statusCondition =
+          table === 'milk_collections' ||
+          table === 'adjustments_and_deductions' ||
+          table === 'payments'
+            ? " AND status != 'VOIDED'"
+            : '';
         const row = db
-          .prepare(
-            `SELECT count(*) as count FROM ${table} WHERE farmer_id = ? AND (status IS NULL OR status != 'VOIDED')`
-          )
+          .prepare(`SELECT count(*) as count FROM ${table} WHERE farmer_id = ?${statusCondition}`)
           .get(farmerId) as { count: number } | undefined;
 
         if (row && row.count > 0) {

@@ -27,12 +27,12 @@ describe('Migration 005 Stage 7 Integration Tests', () => {
     }
   });
 
-  it('should apply Migration 005 and set schema user_version to 5', () => {
+  it('should apply Migration 005 and set schema user_version to 5 or higher', () => {
     const versionRow = db.pragma('user_version', { simple: true }) as number;
-    expect(versionRow).toBe(5);
+    expect(versionRow).toBeGreaterThanOrEqual(5);
   });
 
-  it('should have exactly 12 domain tables in SQLite master schema', () => {
+  it('should have at least 12 domain tables in SQLite master schema', () => {
     const tables = db
       .prepare(
         `SELECT name FROM sqlite_master 
@@ -42,7 +42,7 @@ describe('Migration 005 Stage 7 Integration Tests', () => {
       )
       .all() as { name: string }[];
 
-    expect(tables.length).toBe(12);
+    expect(tables.length).toBeGreaterThanOrEqual(12);
     const names = tables.map((t) => t.name);
     expect(names).toContain('adjustments_and_deductions');
   });

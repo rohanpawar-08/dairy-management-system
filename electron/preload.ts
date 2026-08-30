@@ -93,6 +93,18 @@ const CHANNELS = {
   ADJUSTMENT_GET: 'dairy:adjustment:get',
   ADJUSTMENT_VOID: 'dairy:adjustment:void',
   LEDGER_GET_FARMER: 'dairy:ledger:get-farmer',
+  // Stage 8 Settlement & Payment Channels
+  SETTLEMENT_LIST_PERIODS: 'dairy:settlement:list-periods',
+  SETTLEMENT_GET_PERIOD: 'dairy:settlement:get-period',
+  SETTLEMENT_CREATE_DRAFT: 'dairy:settlement:create-draft',
+  SETTLEMENT_PREVIEW: 'dairy:settlement:preview',
+  SETTLEMENT_FINALIZE: 'dairy:settlement:finalize',
+  SETTLEMENT_CANCEL_DRAFT: 'dairy:settlement:cancel-draft',
+  SETTLEMENT_LIST_FARMER_SETTLEMENTS: 'dairy:settlement:list-farmer-settlements',
+  SETTLEMENT_GET_OUTSTANDING: 'dairy:settlement:get-outstanding',
+  PAYMENT_LIST: 'dairy:payment:list',
+  PAYMENT_RECORD: 'dairy:payment:record',
+  PAYMENT_VOID: 'dairy:payment:void',
 } as const;
 
 /**
@@ -281,6 +293,45 @@ const dairyApi: DairyApiBridge = {
   ledger: {
     getFarmerLedger: (payload: GetFarmerLedgerPayload): Promise<IpcResponse<LedgerSummaryDto>> => {
       return ipcRenderer.invoke(CHANNELS.LEDGER_GET_FARMER, payload);
+    },
+  },
+
+  settlements: {
+    listPeriods: () => {
+      return ipcRenderer.invoke(CHANNELS.SETTLEMENT_LIST_PERIODS);
+    },
+    getPeriod: (periodId: number) => {
+      return ipcRenderer.invoke(CHANNELS.SETTLEMENT_GET_PERIOD, periodId);
+    },
+    createDraft: (payload: any) => {
+      return ipcRenderer.invoke(CHANNELS.SETTLEMENT_CREATE_DRAFT, payload);
+    },
+    preview: (payload: any) => {
+      return ipcRenderer.invoke(CHANNELS.SETTLEMENT_PREVIEW, payload);
+    },
+    finalize: (payload: any) => {
+      return ipcRenderer.invoke(CHANNELS.SETTLEMENT_FINALIZE, payload);
+    },
+    cancelDraft: (payload: any) => {
+      return ipcRenderer.invoke(CHANNELS.SETTLEMENT_CANCEL_DRAFT, payload);
+    },
+    listFarmerSettlements: (filter?: any) => {
+      return ipcRenderer.invoke(CHANNELS.SETTLEMENT_LIST_FARMER_SETTLEMENTS, filter);
+    },
+    getOutstanding: (farmerId: number) => {
+      return ipcRenderer.invoke(CHANNELS.SETTLEMENT_GET_OUTSTANDING, farmerId);
+    },
+  },
+
+  payments: {
+    list: (filter?: any) => {
+      return ipcRenderer.invoke(CHANNELS.PAYMENT_LIST, filter);
+    },
+    record: (payload: any) => {
+      return ipcRenderer.invoke(CHANNELS.PAYMENT_RECORD, payload);
+    },
+    void: (payload: any) => {
+      return ipcRenderer.invoke(CHANNELS.PAYMENT_VOID, payload);
     },
   },
 };

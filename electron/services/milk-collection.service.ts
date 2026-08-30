@@ -341,20 +341,20 @@ export class MilkCollectionService {
     if (hasSettlementTables.count === 2) {
       const linkedSettlement = db
         .prepare(`
-          SELECT ws.id as settlement_id, ws.status as settlement_status
+          SELECT ws.id as settlement_id, sp.status as period_status, sp.settlement_number
           FROM settlement_items si
-          JOIN weekly_settlements ws ON si.settlement_id = ws.id
+          JOIN weekly_settlements ws ON si.weekly_settlement_id = ws.id
+          JOIN settlement_periods sp ON ws.settlement_period_id = sp.id
           WHERE si.source_type = 'MILK_COLLECTION' 
             AND si.source_id = ?
-            AND si.status = 'ACTIVE'
-            AND ws.status != 'CANCELLED'
+            AND sp.status = 'FINALIZED'
           LIMIT 1
         `)
-        .get(payload.collectionId) as { settlement_id: number; settlement_status: string } | undefined;
+        .get(payload.collectionId) as { settlement_id: number; period_status: string; settlement_number: string } | undefined;
 
       if (linkedSettlement) {
         throw new Error(
-          `Cannot void collection #${payload.collectionId}: Record is linked to active weekly settlement #${linkedSettlement.settlement_id} (${linkedSettlement.settlement_status}). Please release or cancel the settlement first. (ही संकलन नोंद साप्ताहिक बिल #${linkedSettlement.settlement_id} शी जोडलेली असल्याने रद्द करता येत नाही.)`
+          `Cannot void collection #${payload.collectionId}: Record is linked to finalized settlement ${linkedSettlement.settlement_number}. (ही दूध नोंद अंतिम हिशोब बिल ${linkedSettlement.settlement_number} शी जोडलेली असल्याने रद्द करता येत नाही.)`
         );
       }
     }

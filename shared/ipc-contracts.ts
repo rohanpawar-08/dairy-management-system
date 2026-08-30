@@ -46,6 +46,7 @@ export interface SqliteSmokeResult {
   stage5?: Stage5SmokeSummary;
   stage6?: Stage6SmokeSummary;
   stage7?: Stage7SmokeSummary;
+  stage8?: Stage8SmokeSummary;
 }
 
 export interface Stage3SmokeSummary {
@@ -433,6 +434,18 @@ export const IPC_CHANNELS = {
   ADJUSTMENT_GET: 'dairy:adjustment:get',
   ADJUSTMENT_VOID: 'dairy:adjustment:void',
   LEDGER_GET_FARMER: 'dairy:ledger:get-farmer',
+  // Stage 8 Settlement & Payment Channels
+  SETTLEMENT_LIST_PERIODS: 'dairy:settlement:list-periods',
+  SETTLEMENT_GET_PERIOD: 'dairy:settlement:get-period',
+  SETTLEMENT_CREATE_DRAFT: 'dairy:settlement:create-draft',
+  SETTLEMENT_PREVIEW: 'dairy:settlement:preview',
+  SETTLEMENT_FINALIZE: 'dairy:settlement:finalize',
+  SETTLEMENT_CANCEL_DRAFT: 'dairy:settlement:cancel-draft',
+  SETTLEMENT_LIST_FARMER_SETTLEMENTS: 'dairy:settlement:list-farmer-settlements',
+  SETTLEMENT_GET_OUTSTANDING: 'dairy:settlement:get-outstanding',
+  PAYMENT_LIST: 'dairy:payment:list',
+  PAYMENT_RECORD: 'dairy:payment:record',
+  PAYMENT_VOID: 'dairy:payment:void',
 } as const;
 
 export type IpcChannel = (typeof IPC_CHANNELS)[keyof typeof IPC_CHANNELS];
@@ -684,6 +697,22 @@ export interface DairyApiBridge {
   ledger: {
     getFarmerLedger: (payload: GetFarmerLedgerPayload) => Promise<IpcResponse<LedgerSummaryDto>>;
   };
+  // Stage 8 Settlement & Payment Methods
+  settlements: {
+    listPeriods: () => Promise<IpcResponse<SettlementPeriodDto[]>>;
+    getPeriod: (periodId: number) => Promise<IpcResponse<SettlementPeriodDto>>;
+    createDraft: (payload: CreateSettlementDraftPayload) => Promise<IpcResponse<SettlementPeriodDto>>;
+    preview: (payload: { periodId?: number; periodStart?: string }) => Promise<IpcResponse<SettlementPreviewDto>>;
+    finalize: (payload: FinalizeSettlementPayload) => Promise<IpcResponse<SettlementPeriodDto>>;
+    cancelDraft: (payload: CancelSettlementDraftPayload) => Promise<IpcResponse<SettlementPeriodDto>>;
+    listFarmerSettlements: (filter?: { periodId?: number; farmerId?: number; memberCode?: string }) => Promise<IpcResponse<WeeklySettlementDto[]>>;
+    getOutstanding: (farmerId: number) => Promise<IpcResponse<FarmerOutstandingDto>>;
+  };
+  payments: {
+    list: (filter?: { farmerId?: number; memberCode?: string; status?: PaymentStatus; fromDate?: string; toDate?: string }) => Promise<IpcResponse<PaymentDto[]>>;
+    record: (payload: RecordPaymentPayload) => Promise<IpcResponse<PaymentDto>>;
+    void: (payload: VoidPaymentPayload) => Promise<IpcResponse<PaymentDto>>;
+  };
 }
 
 // Stage 7 Adjustment & Ledger DTOs & Contracts
@@ -832,6 +861,209 @@ export interface Stage7SmokeSummary {
   voidExcludedFromBalance: boolean;
   hardDeleteRejected: boolean;
   immutableUpdateRejected: boolean;
+  auditEventsOk: boolean;
+  auditRollbackOk: boolean;
+}
+
+// Stage 8 Settlement & Payment DTOs & Contracts
+export type SettlementPeriodStatus = 'DRAFT' | 'FINALIZED' | 'CANCELLED';
+
+export interface SettlementPeriodDto {
+  id: number;
+  settlementNumber: string;
+  periodStart: string;
+  periodEnd: string;
+  status: SettlementPeriodStatus;
+  createdByUserId: number;
+  createdByName: string;
+  createdAt: string;
+  finalizedByUserId: number | null;
+  finalizedByName: string | null;
+  finalizedAt: string | null;
+  cancelledByUserId: number | null;
+  cancelledByName: string | null;
+  cancelledAt: string | null;
+  cancellationReason: string | null;
+  updatedAt: string;
+  settlementsCount?: number;
+  totalNetAmountPaise?: number;
+}
+
+export interface CreateSettlementDraftPayload {
+  periodStart: string;
+}
+
+export interface CancelSettlementDraftPayload {
+  periodId: number;
+  reason: string;
+}
+
+export interface FinalizeSettlementPayload {
+  periodId: number;
+}
+
+export interface SettlementPreviewItemDto {
+  farmerId: number;
+  memberCode: string;
+  farmerNameMr: string;
+  farmerNameEn: string | null;
+  openingBalancePaise: number;
+  milkQuantityMl: number;
+  milkCollectionCount: number;
+  milkAmountPaise: number;
+  creditAmountPaise: number;
+  deductionAmountPaise: number;
+  advanceAmountPaise: number;
+  netAmountPaise: number;
+  openingBalanceIncluded: boolean;
+}
+
+export interface SettlementPreviewDto {
+  periodStart: string;
+  periodEnd: string;
+  configuredStartDay: string;
+  eligibleFarmerCount: number;
+  milkCollectionCount: number;
+  totalMilkQuantityMl: number;
+  totalMilkAmountPaise: number;
+  totalCreditsPaise: number;
+  totalDeductionsPaise: number;
+  totalAdvancesPaise: number;
+  totalNetPaise: number;
+  farmerItems: SettlementPreviewItemDto[];
+  warnings: string[];
+  hasPriorUnsettledActivity: boolean;
+}
+
+export interface WeeklySettlementDto {
+  id: number;
+  settlementPeriodId: number;
+  farmerId: number;
+  memberCodeSnapshot: string;
+  farmerNameMrSnapshot: string;
+  farmerNameEnSnapshot: string | null;
+  openingBalancePaise: number;
+  milkQuantityMl: number;
+  milkCollectionCount: number;
+  milkAmountPaise: number;
+  creditAmountPaise: number;
+  deductionAmountPaise: number;
+  advanceAmountPaise: number;
+  netAmountPaise: number;
+  createdAt: string;
+  allocatedPaymentPaise?: number;
+  outstandingAmountPaise?: number;
+}
+
+export type SettlementItemSourceType = 'OPENING_BALANCE' | 'MILK_COLLECTION' | 'ADJUSTMENT';
+
+export interface SettlementItemDto {
+  id: number;
+  weeklySettlementId: number;
+  sourceType: SettlementItemSourceType;
+  sourceId: number;
+  businessDate: string | null;
+  referenceNumber: string;
+  signedAmountPaise: number;
+  createdAt: string;
+}
+
+export type PaymentMethod = 'CASH' | 'BANK_TRANSFER' | 'UPI' | 'CHEQUE' | 'OTHER';
+export type PaymentStatus = 'RECORDED' | 'VOIDED';
+
+export interface PaymentDto {
+  id: number;
+  paymentNumber: string;
+  farmerId: number;
+  farmerMemberCode: string;
+  farmerNameMr: string;
+  farmerNameEn: string | null;
+  businessDate: string;
+  amountPaise: number;
+  paymentMethod: PaymentMethod;
+  externalReference: string | null;
+  notes: string | null;
+  status: PaymentStatus;
+  createdByUserId: number;
+  createdByName: string;
+  createdAt: string;
+  voidedByUserId: number | null;
+  voidedByName: string | null;
+  voidedAt: string | null;
+  voidReason: string | null;
+  updatedAt: string;
+  allocations?: PaymentAllocationDto[];
+}
+
+export interface PaymentAllocationDto {
+  id: number;
+  paymentId: number;
+  weeklySettlementId: number;
+  settlementPeriodNumber: string;
+  periodStart: string;
+  periodEnd: string;
+  allocatedPaise: number;
+  createdAt: string;
+}
+
+export interface RecordPaymentPayload {
+  farmerId: number;
+  businessDate: string;
+  amountRupees: string | number;
+  paymentMethod: PaymentMethod;
+  externalReference?: string | null;
+  notes?: string | null;
+}
+
+export interface VoidPaymentPayload {
+  paymentId: number;
+  reason: string;
+}
+
+export interface FarmerOutstandingDto {
+  farmerId: number;
+  memberCode: string;
+  farmerNameMr: string;
+  farmerNameEn: string | null;
+  totalFinalizedNetPaise: number;
+  totalActivePaidPaise: number;
+  outstandingBalancePaise: number;
+  canRecordPayment: boolean;
+}
+
+export interface Stage8SmokeSummary {
+  migrationVersion6Ok: boolean;
+  tablesCount17Ok: boolean;
+  zeroSettlementsInitially: boolean;
+  draftCreatedOk: boolean;
+  secondDraftRejected: boolean;
+  weeklyDateValidationOk: boolean;
+  overlapRejected: boolean;
+  previewCreatesNoSnapshots: boolean;
+  previewTotalsExact: boolean;
+  operatorPreviewAllowed: boolean;
+  operatorMutationRejected: boolean;
+  settlementFinalizedOk: boolean;
+  farmerSnapshotsExact: boolean;
+  openingBalanceIncludedOnce: boolean;
+  settlementItemsLinked: boolean;
+  duplicateSourcesPrevented: boolean;
+  linkedCollectionVoidRejected: boolean;
+  linkedAdjustmentVoidRejected: boolean;
+  finalizedSettlementImmutable: boolean;
+  draftCancellationOk: boolean;
+  paymentRecordedOk: boolean;
+  partialPaymentOk: boolean;
+  fifoAllocationOk: boolean;
+  paymentNumberSequenceOk: boolean;
+  paymentRollbackDoesNotConsumeNumber: boolean;
+  paymentOverOutstandingRejected: boolean;
+  operatorPaymentRejected: boolean;
+  paymentVoidOk: boolean;
+  voidRestoresOutstanding: boolean;
+  settlementHardDeleteRejected: boolean;
+  paymentHardDeleteRejected: boolean;
+  immutableUpdatesRejected: boolean;
   auditEventsOk: boolean;
   auditRollbackOk: boolean;
 }

@@ -170,7 +170,57 @@ async function runSmokePack() {
               s6.auditEventsOk === true &&
               s6.noHardDeleteOk === true;
 
-            if (s5Ok && s6Ok) {
+            const s7 = parsed?.sqlite?.data?.stage7;
+            const s8 = parsed?.sqlite?.data?.stage8;
+
+            const s7Ok =
+              s7 &&
+              s7.migrationVersion5Ok === true &&
+              s7.tablesCount12Ok === true &&
+              s7.computedBalanceExact === true &&
+              s7.runningBalanceExact === true &&
+              s7.operatorMutationRejected === true &&
+              s7.adjustmentVoidOk === true &&
+              s7.hardDeleteRejected === true;
+
+            const s8Ok =
+              s8 &&
+              s8.migrationVersion6Ok === true &&
+              s8.tablesCount17Ok === true &&
+              s8.zeroSettlementsInitially === true &&
+              s8.draftCreatedOk === true &&
+              s8.secondDraftRejected === true &&
+              s8.weeklyDateValidationOk === true &&
+              s8.overlapRejected === true &&
+              s8.previewCreatesNoSnapshots === true &&
+              s8.previewTotalsExact === true &&
+              s8.operatorPreviewAllowed === true &&
+              s8.operatorMutationRejected === true &&
+              s8.settlementFinalizedOk === true &&
+              s8.farmerSnapshotsExact === true &&
+              s8.openingBalanceIncludedOnce === true &&
+              s8.settlementItemsLinked === true &&
+              s8.duplicateSourcesPrevented === true &&
+              s8.linkedCollectionVoidRejected === true &&
+              s8.linkedAdjustmentVoidRejected === true &&
+              s8.finalizedSettlementImmutable === true &&
+              s8.draftCancellationOk === true &&
+              s8.paymentRecordedOk === true &&
+              s8.partialPaymentOk === true &&
+              s8.fifoAllocationOk === true &&
+              s8.paymentNumberSequenceOk === true &&
+              s8.paymentRollbackDoesNotConsumeNumber === true &&
+              s8.paymentOverOutstandingRejected === true &&
+              s8.operatorPaymentRejected === true &&
+              s8.paymentVoidOk === true &&
+              s8.voidRestoresOutstanding === true &&
+              s8.settlementHardDeleteRejected === true &&
+              s8.paymentHardDeleteRejected === true &&
+              s8.immutableUpdatesRejected === true &&
+              s8.auditEventsOk === true &&
+              s8.auditRollbackOk === true;
+
+            if (s5Ok && s6Ok && s7Ok && s8Ok) {
               validatedOk = true;
             }
           }

@@ -43,6 +43,16 @@ import {
   GetFarmerLedgerPayload,
   AdjustmentDto,
   LedgerSummaryDto,
+  SettlementPeriodDto,
+  CreateSettlementDraftPayload,
+  CancelSettlementDraftPayload,
+  FinalizeSettlementPayload,
+  SettlementPreviewDto,
+  WeeklySettlementDto,
+  PaymentDto,
+  RecordPaymentPayload,
+  VoidPaymentPayload,
+  FarmerOutstandingDto,
 } from '../../../../shared/ipc-contracts';
 
 const NO_BRIDGE_ERROR: IpcErrorDetails = {
@@ -596,6 +606,93 @@ export class ElectronBridgeService {
         };
       }
       return this.api.ledger.getFarmerLedger(payload);
+    },
+  };
+
+  /**
+   * Stage 8: Weekly Settlements IPC Methods
+   */
+  public readonly settlements = {
+    listPeriods: async (): Promise<IpcResponse<SettlementPeriodDto[]>> => {
+      if (!this.api?.settlements) {
+        return { success: false, error: NO_BRIDGE_ERROR };
+      }
+      return this.api.settlements.listPeriods();
+    },
+
+    getPeriod: async (periodId: number): Promise<IpcResponse<SettlementPeriodDto>> => {
+      if (!this.api?.settlements) {
+        return { success: false, error: NO_BRIDGE_ERROR };
+      }
+      return this.api.settlements.getPeriod(periodId);
+    },
+
+    createDraft: async (payload: CreateSettlementDraftPayload): Promise<IpcResponse<SettlementPeriodDto>> => {
+      if (!this.api?.settlements) {
+        return { success: false, error: NO_BRIDGE_ERROR };
+      }
+      return this.api.settlements.createDraft(payload);
+    },
+
+    preview: async (payload: { periodId?: number; periodStart?: string }): Promise<IpcResponse<SettlementPreviewDto>> => {
+      if (!this.api?.settlements) {
+        return { success: false, error: NO_BRIDGE_ERROR };
+      }
+      return this.api.settlements.preview(payload);
+    },
+
+    finalize: async (payload: FinalizeSettlementPayload): Promise<IpcResponse<SettlementPeriodDto>> => {
+      if (!this.api?.settlements) {
+        return { success: false, error: NO_BRIDGE_ERROR };
+      }
+      return this.api.settlements.finalize(payload);
+    },
+
+    cancelDraft: async (payload: CancelSettlementDraftPayload): Promise<IpcResponse<SettlementPeriodDto>> => {
+      if (!this.api?.settlements) {
+        return { success: false, error: NO_BRIDGE_ERROR };
+      }
+      return this.api.settlements.cancelDraft(payload);
+    },
+
+    listFarmerSettlements: async (filter?: { periodId?: number; farmerId?: number; memberCode?: string }): Promise<IpcResponse<WeeklySettlementDto[]>> => {
+      if (!this.api?.settlements) {
+        return { success: false, error: NO_BRIDGE_ERROR };
+      }
+      return this.api.settlements.listFarmerSettlements(filter);
+    },
+
+    getOutstanding: async (farmerId: number): Promise<IpcResponse<FarmerOutstandingDto>> => {
+      if (!this.api?.settlements) {
+        return { success: false, error: NO_BRIDGE_ERROR };
+      }
+      return this.api.settlements.getOutstanding(farmerId);
+    },
+  };
+
+  /**
+   * Stage 8: Payments IPC Methods
+   */
+  public readonly payments = {
+    list: async (filter?: { farmerId?: number; memberCode?: string; status?: any; fromDate?: string; toDate?: string }): Promise<IpcResponse<PaymentDto[]>> => {
+      if (!this.api?.payments) {
+        return { success: false, error: NO_BRIDGE_ERROR };
+      }
+      return this.api.payments.list(filter);
+    },
+
+    record: async (payload: RecordPaymentPayload): Promise<IpcResponse<PaymentDto>> => {
+      if (!this.api?.payments) {
+        return { success: false, error: NO_BRIDGE_ERROR };
+      }
+      return this.api.payments.record(payload);
+    },
+
+    void: async (payload: VoidPaymentPayload): Promise<IpcResponse<PaymentDto>> => {
+      if (!this.api?.payments) {
+        return { success: false, error: NO_BRIDGE_ERROR };
+      }
+      return this.api.payments.void(payload);
     },
   };
 }

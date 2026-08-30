@@ -1,0 +1,300 @@
+<div class="settlements-container">
+  <!-- Top Header Banner -->
+  <div class="page-header">
+    <div class="title-group">
+      <h1>
+        <mat-icon color="primary">account_balance_wallet</mat-icon>
+        <span>{{ i18n.t('settlements.pageTitle') }}</span>
+      </h1>
+      <p class="subtitle">{{ i18n.t('settlements.pageSubtitle') }}</p>
+    </div>
+
+    <div class="actions-group" *ngIf="auth.isOwner()">
+      <button
+        mat-raised-button
+        color="primary"
+        (click)="openCreateDraftDialog()"
+        [disabled]="!!state.activeDraftPeriod()"
+      >
+        <mat-icon>add</mat-icon>
+        <span>{{ i18n.t('settlements.newDraftAction') }}</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Global Error Banner -->
+  <div class="error-banner" *ngIf="state.error()">
+    <mat-icon>error</mat-icon>
+    <span>{{ state.error() }}</span>
+  </div>
+
+  <!-- Main Tabs -->
+  <mat-tab-group [(selectedIndex)]="activeTabIndex" class="main-tabs" animationDuration="0ms">
+    <!-- TAB 1: SETTLEMENT PERIODS & BATCHES -->
+    <mat-tab [label]="i18n.t('settlements.tabPeriods')">
+      <div class="tab-content">
+        <!-- Period Selector Toolbar -->
+        <div class="toolbar-card">
+          <div class="period-select-field">
+            <label class="field-label">{{ i18n.t('settlements.selectPeriod') }}:</label>
+            <mat-select
+              [value]="state.selectedPeriod()?.id"
+              (selectionChange)="onPeriodSelect($event.value)"
+              class="period-dropdown"
+            >
+              <mat-option *ngFor="let p of state.periods()" [value]="p.id">
+                {{ p.settlementNumber }} ({{ p.periodStart }} {{ i18n.t('common.to') }} {{ p.periodEnd }}) -
+                <span [class.draft-tag]="p.status === 'DRAFT'" [class.final-tag]="p.status === 'FINALIZED'">
+                  {{ p.status }}
+                </span>
+              </mat-option>
+            </mat-select>
+          </div>
+
+          <!-- Status Chips & Actions -->
+          <div class="period-meta" *ngIf="state.selectedPeriod() as selected">
+            <span class="status-chip" [class.draft]="selected.status === 'DRAFT'" [class.finalized]="selected.status === 'FINALIZED'" [class.cancelled]="selected.status === 'CANCELLED'">
+              {{ selected.status }}
+            </span>
+
+            <div class="owner-buttons" *ngIf="auth.isOwner() && selected.status === 'DRAFT'">
+              <button mat-raised-button color="warn" (click)="openFinalizeDialog()">
+                <mat-icon>lock</mat-icon>
+                <span>{{ i18n.t('settlements.finalizeAction') }}</span>
+              </button>
+              <button mat-stroked-button color="warn" (click)="openCancelDraftDialog()">
+                <mat-icon>cancel</mat-icon>
+                <span>{{ i18n.t('settlements.cancelDraftAction') }}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- DRAFT PREVIEW VIEW -->
+        <ng-container *ngIf="state.selectedPeriod()?.status === 'DRAFT'">
+          <div class="preview-mode-banner">
+            <mat-icon color="primary">visibility</mat-icon>
+            <div>
+              <strong>{{ i18n.t('settlements.previewModeTitle') }}</strong>
+              <p>{{ i18n.t('settlements.previewModeSubtitle') }}</p>
+            </div>
+          </div>
+
+          <!-- Preview Summary Cards -->
+          <div class="summary-cards-grid" *ngIf="state.previewData() as prev">
+            <div class="card summary-card">
+              <span class="card-label">{{ i18n.t('settlements.eligibleFarmers') }}</span>
+              <span class="card-value">{{ prev.eligibleFarmerCount }}</span>
+            </div>
+            <div class="card summary-card">
+              <span class="card-label">{{ i18n.t('settlements.totalMilkQuantity') }}</span>
+              <span class="card-value">{{ (prev.totalMilkQuantityMl / 1000).toFixed(1) }} L</span>
+            </div>
+            <div class="card summary-card">
+              <span class="card-label">{{ i18n.t('settlements.totalMilkAmount') }}</span>
+              <span class="card-value green">₹{{ formatRupees(prev.totalMilkAmountPaise) }}</span>
+            </div>
+            <div class="card summary-card">
+              <span class="card-label">{{ i18n.t('settlements.totalCredits') }}</span>
+              <span class="card-value blue">₹{{ formatRupees(prev.totalCreditsPaise) }}</span>
+            </div>
+            <div class="card summary-card">
+              <span class="card-label">{{ i18n.t('settlements.totalDeductions') }}</span>
+              <span class="card-value red">₹{{ formatRupees(prev.totalDeductionsPaise + prev.totalAdvancesPaise) }}</span>
+            </div>
+            <div class="card summary-card highlight">
+              <span class="card-label">{{ i18n.t('settlements.totalNetDue') }}</span>
+              <span class="card-value bold-net">₹{{ formatRupees(prev.totalNetPaise) }}</span>
+            </div>
+          </div>
+
+          <!-- Preview Line Items Table -->
+          <div class="table-container card">
+            <table mat-table [dataSource]="state.previewData()?.farmerItems || []" class="preview-table">
+              <ng-container matColumnDef="memberCode">
+                <th mat-header-cell *matHeaderCellDef>{{ i18n.t('farmers.memberCode') }}</th>
+                <td mat-cell *matCellDef="let row"><strong>{{ row.memberCode }}</strong></td>
+              </ng-container>
+
+              <ng-container matColumnDef="farmerName">
+                <th mat-header-cell *matHeaderCellDef>{{ i18n.t('farmers.farmerName') }}</th>
+                <td mat-cell *matCellDef="let row">{{ row.farmerNameMr }}</td>
+              </ng-container>
+
+              <ng-container matColumnDef="openingBalance">
+                <th mat-header-cell *matHeaderCellDef>{{ i18n.t('settlements.openingBalance') }}</th>
+                <td mat-cell *matCellDef="let row">₹{{ formatRupees(row.openingBalancePaise) }}</td>
+              </ng-container>
+
+              <ng-container matColumnDef="milkAmount">
+                <th mat-header-cell *matHeaderCellDef>{{ i18n.t('settlements.milkEarnings') }}</th>
+                <td mat-cell *matCellDef="let row" class="green">₹{{ formatRupees(row.milkAmountPaise) }}</td>
+              </ng-container>
+
+              <ng-container matColumnDef="credits">
+                <th mat-header-cell *matHeaderCellDef>{{ i18n.t('settlements.credits') }}</th>
+                <td mat-cell *matCellDef="let row" class="blue">₹{{ formatRupees(row.creditAmountPaise) }}</td>
+              </ng-container>
+
+              <ng-container matColumnDef="deductions">
+                <th mat-header-cell *matHeaderCellDef>{{ i18n.t('settlements.deductions') }}</th>
+                <td mat-cell *matCellDef="let row" class="red">₹{{ formatRupees(row.deductionAmountPaise + row.advanceAmountPaise) }}</td>
+              </ng-container>
+
+              <ng-container matColumnDef="netAmount">
+                <th mat-header-cell *matHeaderCellDef>{{ i18n.t('settlements.netAmountDue') }}</th>
+                <td mat-cell *matCellDef="let row" class="bold">₹{{ formatRupees(row.netAmountPaise) }}</td>
+              </ng-container>
+
+              <tr mat-header-row *matHeaderRowDef="previewColumns"></tr>
+              <tr mat-row *matRowDef="let row; columns: previewColumns"></tr>
+            </table>
+          </div>
+        </ng-container>
+
+        <!-- FINALIZED SETTLEMENT VIEW -->
+        <ng-container *ngIf="state.selectedPeriod()?.status === 'FINALIZED'">
+          <div class="finalized-header-card card">
+            <div class="info-row">
+              <mat-icon color="primary">lock</mat-icon>
+              <div>
+                <span class="batch-title">{{ state.selectedPeriod()?.settlementNumber }}</span>
+                <span class="batch-dates">{{ state.selectedPeriod()?.periodStart }} {{ i18n.t('common.to') }} {{ state.selectedPeriod()?.periodEnd }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Finalized Weekly Settlements Table -->
+          <div class="table-container card">
+            <table mat-table [dataSource]="state.farmerSettlements()" class="finalized-table">
+              <ng-container matColumnDef="memberCode">
+                <th mat-header-cell *matHeaderCellDef>{{ i18n.t('farmers.memberCode') }}</th>
+                <td mat-cell *matCellDef="let row"><strong>{{ row.memberCodeSnapshot }}</strong></td>
+              </ng-container>
+
+              <ng-container matColumnDef="farmerName">
+                <th mat-header-cell *matHeaderCellDef>{{ i18n.t('farmers.farmerName') }}</th>
+                <td mat-cell *matCellDef="let row">{{ row.farmerNameMrSnapshot }}</td>
+              </ng-container>
+
+              <ng-container matColumnDef="openingBalance">
+                <th mat-header-cell *matHeaderCellDef>{{ i18n.t('settlements.openingBalance') }}</th>
+                <td mat-cell *matCellDef="let row">₹{{ formatRupees(row.openingBalancePaise) }}</td>
+              </ng-container>
+
+              <ng-container matColumnDef="milkAmount">
+                <th mat-header-cell *matHeaderCellDef>{{ i18n.t('settlements.milkEarnings') }}</th>
+                <td mat-cell *matCellDef="let row" class="green">₹{{ formatRupees(row.milkAmountPaise) }}</td>
+              </ng-container>
+
+              <ng-container matColumnDef="credits">
+                <th mat-header-cell *matHeaderCellDef>{{ i18n.t('settlements.credits') }}</th>
+                <td mat-cell *matCellDef="let row" class="blue">₹{{ formatRupees(row.creditAmountPaise) }}</td>
+              </ng-container>
+
+              <ng-container matColumnDef="deductions">
+                <th mat-header-cell *matHeaderCellDef>{{ i18n.t('settlements.deductions') }}</th>
+                <td mat-cell *matCellDef="let row" class="red">₹{{ formatRupees(row.deductionAmountPaise + row.advanceAmountPaise) }}</td>
+              </ng-container>
+
+              <ng-container matColumnDef="netAmount">
+                <th mat-header-cell *matHeaderCellDef>{{ i18n.t('settlements.netAmountDue') }}</th>
+                <td mat-cell *matCellDef="let row" class="bold">₹{{ formatRupees(row.netAmountPaise) }}</td>
+              </ng-container>
+
+              <ng-container matColumnDef="allocatedPayment">
+                <th mat-header-cell *matHeaderCellDef>{{ i18n.t('settlements.paidAmount') }}</th>
+                <td mat-cell *matCellDef="let row" class="green">₹{{ formatRupees(row.allocatedPaymentPaise || 0) }}</td>
+              </ng-container>
+
+              <ng-container matColumnDef="outstanding">
+                <th mat-header-cell *matHeaderCellDef>{{ i18n.t('settlements.outstandingBalance') }}</th>
+                <td mat-cell *matCellDef="let row" class="bold-out">₹{{ formatRupees(row.outstandingAmountPaise || 0) }}</td>
+              </ng-container>
+
+              <ng-container matColumnDef="actions">
+                <th mat-header-cell *matHeaderCellDef>{{ i18n.t('common.actions') }}</th>
+                <td mat-cell *matCellDef="let row">
+                  <button
+                    mat-stroked-button
+                    color="primary"
+                    size="small"
+                    *ngIf="auth.isOwner() && (row.outstandingAmountPaise || 0) > 0"
+                    (click)="openPaymentDialogForFarmer(row)"
+                  >
+                    <mat-icon>payments</mat-icon>
+                    <span>{{ i18n.t('settlements.payAction') }}</span>
+                  </button>
+                </td>
+              </ng-container>
+
+              <tr mat-header-row *matHeaderRowDef="finalizedColumns"></tr>
+              <tr mat-row *matRowDef="let row; columns: finalizedColumns"></tr>
+            </table>
+          </div>
+        </ng-container>
+      </div>
+    </mat-tab>
+
+    <!-- TAB 2: PAYMENTS HISTORY -->
+    <mat-tab [label]="i18n.t('settlements.tabPayments')">
+      <div class="tab-content">
+        <div class="table-container card">
+          <table mat-table [dataSource]="state.payments()" class="payments-table">
+            <ng-container matColumnDef="paymentNumber">
+              <th mat-header-cell *matHeaderCellDef>{{ i18n.t('settlements.paymentNumber') }}</th>
+              <td mat-cell *matCellDef="let row"><strong>{{ row.paymentNumber }}</strong></td>
+            </ng-container>
+
+            <ng-container matColumnDef="businessDate">
+              <th mat-header-cell *matHeaderCellDef>{{ i18n.t('collection.businessDate') }}</th>
+              <td mat-cell *matCellDef="let row">{{ row.businessDate }}</td>
+            </ng-container>
+
+            <ng-container matColumnDef="farmer">
+              <th mat-header-cell *matHeaderCellDef>{{ i18n.t('farmers.farmerName') }}</th>
+              <td mat-cell *matCellDef="let row">{{ row.farmerMemberCode }} - {{ row.farmerNameMr }}</td>
+            </ng-container>
+
+            <ng-container matColumnDef="amount">
+              <th mat-header-cell *matHeaderCellDef>{{ i18n.t('settlements.paymentAmount') }}</th>
+              <td mat-cell *matCellDef="let row" class="bold green">₹{{ formatRupees(row.amountPaise) }}</td>
+            </ng-container>
+
+            <ng-container matColumnDef="method">
+              <th mat-header-cell *matHeaderCellDef>{{ i18n.t('settlements.paymentMethod') }}</th>
+              <td mat-cell *matCellDef="let row">{{ row.paymentMethod }}</td>
+            </ng-container>
+
+            <ng-container matColumnDef="status">
+              <th mat-header-cell *matHeaderCellDef>{{ i18n.t('common.status') }}</th>
+              <td mat-cell *matCellDef="let row">
+                <span class="status-chip" [class.finalized]="row.status === 'RECORDED'" [class.cancelled]="row.status === 'VOIDED'">
+                  {{ row.status }}
+                </span>
+              </td>
+            </ng-container>
+
+            <ng-container matColumnDef="actions">
+              <th mat-header-cell *matHeaderCellDef>{{ i18n.t('common.actions') }}</th>
+              <td mat-cell *matCellDef="let row">
+                <button
+                  mat-button
+                  color="warn"
+                  *ngIf="auth.isOwner() && row.status === 'RECORDED'"
+                  (click)="openVoidPaymentDialog(row)"
+                >
+                  <mat-icon>undo</mat-icon>
+                  <span>{{ i18n.t('settlements.voidAction') }}</span>
+                </button>
+              </td>
+            </ng-container>
+
+            <tr mat-header-row *matHeaderRowDef="paymentColumns"></tr>
+            <tr mat-row *matRowDef="let row; columns: paymentColumns"></tr>
+          </table>
+        </div>
+      </div>
+    </mat-tab>
+  </mat-tab-group>
+</div>

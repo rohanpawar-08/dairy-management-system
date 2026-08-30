@@ -165,30 +165,25 @@ Each stage represents an **independently testable milestone**. Development proce
 
 ---
 
-### Stage 8: Weekly Settlement Batches & Payment Allocations *(NEXT ACTIVE STAGE)*
+### Stage 8: Weekly Settlement Batches & Payment Allocations *(COMPLETED)*
 - **Objective:** Automate weekly settlement period generation, frozen amount due calculation, non-destructive payment allocations, and collision-safe voucher/statement numbering.
 - **Entry Requirements:** Stage 7 verified.
 - **Deliverables:**
   - Migration `006_settlements_and_payments.sql` creating: `settlement_periods`, `weekly_settlements`, `settlement_items`, `payments`, `payment_allocations`.
-  - Transactional numbering strategy for payment vouchers and settlement statements (`statement_number`).
-  - `SettlementService` managing period lifecycle:
-    * Single row transition `DRAFT` $\rightarrow$ `FINALIZED`;
-    * Immutable snapshot line items in `settlement_items`;
-    * `cancelSettlementPeriod` & `cancelFarmerSettlement` transitioning item status to `'RELEASED'` to allow fresh inclusion without loss of history.
-  - `PaymentService` recording payments and creating `payment_allocations` across finalized settlements (`status`: `ACTIVE`/`VOIDED`).
-  - Invariant reconciliation tests:
-    * Rebuilding cached `payments_allocated_paise` and `outstanding_amount_paise` from active allocations and detecting/repairing drift;
-    * Confirming a cancelled period can be regenerated without losing historical snapshot items;
-    * Preventing double-counting of milk;
-    * Preventing allocation exceeding payment amount or positive settlement outstanding balance;
-    * Preventing voiding of finalized collections until linked settlement is released.
+  - Transactional numbering strategy for payment vouchers (`PAY-YYYYMMDD-000001`) and settlement periods (`SET-YYYYMMDD-000001`).
+  - `SettlementService` managing period lifecycle (`DRAFT` $\rightarrow$ `FINALIZED` or `DRAFT` $\rightarrow$ `CANCELLED`), dynamic draft preview without database snapshots, atomic finalization with immutable snapshots in `weekly_settlements` and line item links in `settlement_items`.
+  - `PaymentService` recording payments and creating `payment_allocations` across finalized settlements (`status`: `RECORDED`/`VOIDED`) using deterministic FIFO allocation.
+  - Linked source protection preventing voiding of milk collections or adjustments linked to finalized settlements.
 - **Verification Commands:**
-  - `npm run test:settlements` (Tests batch generation, item snapshotting, payment allocations, cached-total reconciliation, and release on cancellation).
-- **Exit Criteria:** Settlements freeze amount due; payment allocations reduce outstanding balances correctly; non-destructive cancellations verified; all integrity and reconciliation tests pass.
+  - `npm run test:settlements` (Tests batch generation, item snapshotting, payment allocations, FIFO reconciliation, and draft cancellation).
+  - `npm run test` (All tests pass).
+  - `npm run test:ipc-smoke` (Verifies Stage 1–8 IPC channels and Migration 006).
+  - `npm run build:smoke-pack` (Verifies packaged executable).
+- **Exit Criteria:** Settlements freeze amount due; payment allocations reduce outstanding balances correctly; non-destructive cancellations verified; all integrity and reconciliation tests pass (All criteria PASSED).
 
 ---
 
-### Stage 9: Reports, Dashboard & A4 PDF Printing
+### Stage 9: Reports, Dashboard & A4 PDF Printing *(NEXT ACTIVE STAGE)*
 - **Objective:** Deliver shift registers, daily summaries, dashboard KPIs, and A4 printable statements with bundled Devanagari fonts.
 - **Entry Requirements:** Stage 8 verified.
 - **Deliverables:**

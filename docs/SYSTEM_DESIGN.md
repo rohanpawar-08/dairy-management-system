@@ -523,8 +523,6 @@ CREATE TABLE IF NOT EXISTS weekly_settlements (
     payable_increasing_adjustments_paise INTEGER NOT NULL DEFAULT 0,
     payable_decreasing_deductions_paise INTEGER NOT NULL DEFAULT 0,
     amount_due_paise INTEGER NOT NULL DEFAULT 0, -- Frozen at finalization
-    payments_allocated_paise INTEGER NOT NULL DEFAULT 0, -- Cached sum of active allocations
-    outstanding_amount_paise INTEGER NOT NULL DEFAULT 0, -- Cached (amount_due - payments_allocated)
     status TEXT NOT NULL DEFAULT 'DRAFT' CHECK (status IN ('DRAFT', 'FINALIZED', 'PARTIALLY_PAID', 'PAID', 'CANCELLED')),
     cancellation_reason TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),

@@ -669,47 +669,28 @@ describe('Milk Collections Fast Entry & Transactions (Integration)', () => {
       OPERATOR_WC_ID
     );
 
-    // Create minimal settlement schema
-    db.exec(`
-      CREATE TABLE IF NOT EXISTS weekly_settlements (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        status TEXT NOT NULL
-      );
-      CREATE TABLE IF NOT EXISTS settlement_items (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        settlement_id INTEGER NOT NULL,
-        source_type TEXT NOT NULL,
-        source_id INTEGER NOT NULL,
-        status TEXT NOT NULL
-      );
-      INSERT INTO weekly_settlements (id, status) VALUES (501, 'FINALIZED');
-      INSERT INTO settlement_items (settlement_id, source_type, source_id, status)
-      VALUES (501, 'MILK_COLLECTION', ${col.id}, 'ACTIVE');
-    `);
+    // Link collection to finalized settlement
+    db.prepare(`
+      INSERT INTO settlement_periods (id, settlement_number, period_start, period_end, status, created_by_user_id, finalized_by_user_id, finalized_at)
+      VALUES (500, 'SET-20260907-000001', '2026-09-07', '2026-09-13', 'FINALIZED', 1, 1, (datetime('now')))
+    `).run();
+    db.prepare(`
+      INSERT INTO weekly_settlements (id, settlement_period_id, farmer_id, member_code_snapshot, farmer_name_mr_snapshot, opening_balance_paise, milk_amount_paise, net_amount_paise)
+      VALUES (501, 500, ${col.farmerId}, '101', 'आनंदराव', 0, ${col.amountPaise}, ${col.amountPaise})
+    `).run();
+    db.prepare(`
+      INSERT INTO settlement_items (id, weekly_settlement_id, source_type, source_id, reference_number, signed_amount_paise)
+      VALUES (5001, 501, 'MILK_COLLECTION', ${col.id}, '${col.receiptNumber}', ${col.amountPaise})
+    `).run();
 
     // Voiding is blocked by active finalized settlement
     expect(() =>
       milkCollectionService.voidCollection(
         db,
-        { collectionId: col.id, reason: 'Settlement test void' },
+        { collectionId: col.id, reason: 'Void linked collection' },
         OWNER_WC_ID
       )
-    ).toThrow(/linked to active weekly settlement #501/);
-
-    // If weekly settlement is CANCELLED, voiding succeeds
-    db.prepare("UPDATE weekly_settlements SET status = 'CANCELLED' WHERE id = 501").run();
-    const voided = milkCollectionService.voidCollection(
-      db,
-      { collectionId: col.id, reason: 'Settlement cancelled, now voided' },
-      OWNER_WC_ID
-    );
-    expect(voided.status).toBe('VOIDED');
-
-    // Clean up test tables
-    db.exec(`
-      DROP TABLE IF EXISTS settlement_items;
-      DROP TABLE IF EXISTS weekly_settlements;
-    `);
+    ).toThrow(/Record is linked to finalized settlement/);
   });
 
   it('13. checkDuplicate provides structured domain response without throw', () => {

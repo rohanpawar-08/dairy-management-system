@@ -191,6 +191,33 @@ export class AdjustmentService {
       throw new Error(`Adjustment #${payload.adjustmentId} is already voided.`);
     }
 
+    const hasSettlementTables = db
+      .prepare(
+        "SELECT count(*) as count FROM sqlite_master WHERE type='table' AND name IN ('settlement_items', 'weekly_settlements')"
+      )
+      .get() as { count: number };
+
+    if (hasSettlementTables.count === 2) {
+      const linkedSettlement = db
+        .prepare(`
+          SELECT ws.id as settlement_id, sp.status as period_status, sp.settlement_number
+          FROM settlement_items si
+          JOIN weekly_settlements ws ON si.weekly_settlement_id = ws.id
+          JOIN settlement_periods sp ON ws.settlement_period_id = sp.id
+          WHERE si.source_type = 'ADJUSTMENT'
+            AND si.source_id = ?
+            AND sp.status = 'FINALIZED'
+          LIMIT 1
+        `)
+        .get(payload.adjustmentId) as { settlement_id: number; period_status: string; settlement_number: string } | undefined;
+
+      if (linkedSettlement) {
+        throw new Error(
+          `Cannot void adjustment #${payload.adjustmentId}: Record is linked to finalized settlement ${linkedSettlement.settlement_number}. (ही कपात नोंद अंतिम हिशोब बिल ${linkedSettlement.settlement_number} शी जोडलेली असल्याने रद्द करता येत नाही.)`
+        );
+      }
+    }
+
     const nowIso = this.dateProvider.getNowIso();
 
     const voidTx = db.transaction((): AdjustmentDto => {

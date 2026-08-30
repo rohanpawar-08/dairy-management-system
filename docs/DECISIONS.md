@@ -223,3 +223,17 @@
   6. **Owner-Only RBAC Authority:** Adjustment creation and soft voiding are restricted to the `OWNER` role. Main-process IPC handlers verify session authority (`requireRole('OWNER')`); attempts by `OPERATOR` sessions are strictly rejected.
   7. **Immutability & Non-Destructive Voiding:** Physical SQL `DELETE` queries are blocked by database trigger `trg_adj_prevent_delete`. Transaction fields are immutable once inserted (enforced by `trg_adj_prevent_update`). Reversals execute soft voiding (`status = 'VOIDED'`, `voided_by_user_id`, `voided_at`, `void_reason`).
 - **Rationale:** Ensures complete auditability, eliminates floating-point drift and balance cache corruption, protects against unauthorized operator mutations, and enforces strict financial precision.
+
+---
+
+### ADR-022: Weekly Settlement Batches, Dynamic Draft Preview, Frozen Snapshots, and Deterministic FIFO Payment Allocations
+- **Status:** Accepted
+- **Context:** Weekly milk settlements and farmer payments require freeze-on-finalization batch processing, collision-safe voucher numbering (`SET-YYYYMMDD-000001`, `PAY-YYYYMMDD-000001`), dynamic preview calculations without prematurely creating database snapshots, and deterministic payment allocation across outstanding finalized settlements.
+- **Decision:**
+  1. **Configured Weekday Settlement Boundaries:** Settlement periods validate `period_start` against dairy centre configuration (`settlement_start_day`). Period end is automatically set to `period_start + 6 days`. At most one `DRAFT` period can exist globally (enforced by partial unique index `idx_settlement_periods_single_draft`).
+  2. **Dynamic Draft Preview:** Running `preview()` computes net amounts dynamically without inserting rows into `weekly_settlements` or `settlement_items`.
+  3. **Atomic Finalization & Immutable Snapshots:** Calling `finalize()` executes in a single SQLite transaction: creates immutable snapshots in `weekly_settlements` (freezing net due) and links all source collections, adjustments, and opening balances in `settlement_items`. Duplicate source inclusion across finalized settlements is prevented by database unique indexes.
+  4. **Linked Source Reversal Protection:** Voiding milk collections or adjustments linked to a `FINALIZED` settlement period is rejected with explicit bilingual error.
+  5. **Deterministic FIFO Payment Allocation:** Recording payments (`PAY-YYYYMMDD-000001`) allocates strictly to positive outstanding finalized settlements in FIFO order (`period_start ASC, id ASC`). Payments exceeding positive outstanding balance are rejected.
+  6. **Immutability & Non-Destructive Reversals:** Direct SQL `DELETE` operations on settlement and payment tables are blocked by database triggers. Payment voiding (`status = 'VOIDED'`) restores farmer outstanding balance while preserving sequence counter history.
+- **Rationale:** Guarantees zero double-counting of milk earnings, preserves historical integrity for auditing, and eliminates floating-point financial discrepancies.

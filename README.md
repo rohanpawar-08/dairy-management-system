@@ -24,7 +24,8 @@ The system digitizes and automates daily morning and evening milk collection, dy
 | **Stage 5: Owner-Controlled Rate Plans & Calculation Engine** | **Completed** | Cow/Buffalo formula pricing engine (`PER_PERCENT_POINT_PER_LITRE`), draft/approval lifecycle, duplicate overlap prevention, preview calculation, and Owner RBAC. |
 | **Stage 6: Morning/Evening Shift Management & Fast Collection Entry** | **Completed** | Shift lifecycle (`OPEN`/`LOCKED`), single open partial index, fast keyboard collection entry (<15s), duplicate delivery confirmations, monotonic receipt sequence, and immutable rate snapshots. |
 | **Stage 7: Adjustments, Deductions, Advances & Computed Farmer Ledger** | **Completed** | Non-milk adjustments (`ADVANCE`, `DEDUCTION`, `CREDIT`), `ADJ-YYYYMMDD-000001` daily sequence, Owner RBAC, non-destructive voiding, and real-time computed farmer ledger running balance projection. |
-| **Current Implementation State** | **Stage 7 Verified** | All 254 unit and integration tests passing (`npm test`, `test:ledger`, `test:collection`, `test:rates`, `test:farmers`, `test:auth`, `test:audit-base`, `test:db`, `test:backup-basic`, `test:ipc-smoke`, `build:smoke-pack`). |
+| **Stage 8: Weekly Settlement Batches & Payment Allocations** | **Completed** | Weekly settlement periods (`SET-YYYYMMDD-000001`), dynamic draft preview, atomic finalization snapshots (`weekly_settlements`, `settlement_items`), FIFO payment allocation (`PAY-YYYYMMDD-000001`), non-destructive payment voiding, and zero hard deletes. |
+| **Current Implementation State** | **Stage 8 Verified** | All unit and integration tests passing (`npm test`, `test:settlements`, `test:ledger`, `test:collection`, `test:rates`, `test:farmers`, `test:auth`, `test:audit-base`, `test:db`, `test:backup-basic`, `test:ipc-smoke`, `build:smoke-pack`). |
 
 ---
 
@@ -45,8 +46,11 @@ npm install
 # Start Angular renderer and Electron in development mode
 npm run dev
 
-# Run full test suite (Angular component + backend unit + ledger + collections + rate plans + farmers + auth/audit + database + backup integration)
+# Run full test suite (Angular component + backend unit + settlements + ledger + collections + rate plans + farmers + auth/audit + database + backup integration)
 npm test
+
+# Run Stage 8 Weekly Settlement Batches and Payment Allocation tests
+npm run test:settlements
 
 # Run Stage 7 Adjustments, Deductions, Advances, and Farmer Ledger tests
 npm run test:ledger
