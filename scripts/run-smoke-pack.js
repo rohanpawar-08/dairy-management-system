@@ -220,7 +220,32 @@ async function runSmokePack() {
               s8.auditEventsOk === true &&
               s8.auditRollbackOk === true;
 
-            if (s5Ok && s6Ok && s7Ok && s8Ok) {
+            const s9 = parsed?.sqlite?.data?.stage9;
+            const s9Ok =
+              s9 &&
+              s9.schemaUnchangedVersion6 === true &&
+              s9.tablesUnchanged17 === true &&
+              s9.dailySummaryExact === true &&
+              s9.cowBuffaloBreakdownExact === true &&
+              s9.shiftReportExact === true &&
+              s9.weightedQualityExact === true &&
+              s9.voidedCollectionsExcluded === true &&
+              s9.ledgerStatementExact === true &&
+              s9.settlementReportExact === true &&
+              s9.voidedPaymentsExcluded === true &&
+              s9.outstandingReportExact === true &&
+              s9.dashboardSummaryExact === true &&
+              s9.operatorPreviewAllowed === true &&
+              s9.unauthenticatedRejected === true &&
+              s9.htmlEscapingOk === true &&
+              s9.noExternalResources === true &&
+              s9.filenameSanitizationOk === true &&
+              s9.pdfMagicHeaderOk === true &&
+              s9.pdfNonEmptyOk === true &&
+              s9.temporaryPdfRemoved === true &&
+              s9.arbitraryPathNotExposed === true;
+
+            if (s5Ok && s6Ok && s7Ok && s8Ok && s9Ok) {
               validatedOk = true;
             }
           }

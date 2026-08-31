@@ -47,6 +47,7 @@ export interface SqliteSmokeResult {
   stage6?: Stage6SmokeSummary;
   stage7?: Stage7SmokeSummary;
   stage8?: Stage8SmokeSummary;
+  stage9?: Stage9SmokeSummary;
 }
 
 export interface Stage3SmokeSummary {
@@ -446,6 +447,10 @@ export const IPC_CHANNELS = {
   PAYMENT_LIST: 'dairy:payment:list',
   PAYMENT_RECORD: 'dairy:payment:record',
   PAYMENT_VOID: 'dairy:payment:void',
+  // Stage 9 Report Channels
+  REPORT_DASHBOARD_SUMMARY: 'dairy:report:dashboard-summary',
+  REPORT_PREVIEW: 'dairy:report:preview',
+  REPORT_EXPORT_PDF: 'dairy:report:export-pdf',
 } as const;
 
 export type IpcChannel = (typeof IPC_CHANNELS)[keyof typeof IPC_CHANNELS];
@@ -712,6 +717,12 @@ export interface DairyApiBridge {
     list: (filter?: { farmerId?: number; memberCode?: string; status?: PaymentStatus; fromDate?: string; toDate?: string }) => Promise<IpcResponse<PaymentDto[]>>;
     record: (payload: RecordPaymentPayload) => Promise<IpcResponse<PaymentDto>>;
     void: (payload: VoidPaymentPayload) => Promise<IpcResponse<PaymentDto>>;
+  };
+  // Stage 9 Report Methods
+  reports: {
+    getDashboardSummary: () => Promise<IpcResponse<DashboardSummaryDto>>;
+    preview: (payload: ReportPreviewRequest) => Promise<IpcResponse<ReportPreviewResult>>;
+    exportPdf: (payload: PdfExportRequest) => Promise<IpcResponse<PdfExportResult>>;
   };
 }
 
@@ -1066,4 +1077,83 @@ export interface Stage8SmokeSummary {
   immutableUpdatesRejected: boolean;
   auditEventsOk: boolean;
   auditRollbackOk: boolean;
+}
+
+// ============================================================================
+// Stage 9 Reports & Dashboard DTOs
+// ============================================================================
+
+export interface DashboardSummaryDto {
+  indiaBusinessDate: string;
+  currentShift: ShiftSummaryDto | null;
+  todayLitresFormatted: string;
+  todayAmountFormatted: string;
+  todayCollectionCount: number;
+  cowLitresFormatted: string;
+  buffaloLitresFormatted: string;
+  todayActiveFarmers: number;
+  currentWeekLitresFormatted: string;
+  currentWeekAmountFormatted: string;
+  latestFinalizedSettlementNumber: string | null;
+  totalFarmerPayableFormatted: string;
+  totalFarmerDebtFormatted: string;
+  unpaidFarmerCount: number;
+  recentPayments: PaymentDto[];
+  readinessWarnings: string[];
+}
+
+export type ReportType =
+  | 'DAILY_COLLECTION_SUMMARY'
+  | 'SHIFT_COLLECTION_REPORT'
+  | 'FARMER_LEDGER_STATEMENT'
+  | 'SETTLEMENT_BATCH_REPORT'
+  | 'PAYMENT_REGISTER'
+  | 'OUTSTANDING_FARMER_REPORT'
+  | 'PAYMENT_VOUCHER';
+
+export interface ReportPreviewRequest {
+  reportType: ReportType;
+  fromDate?: string;
+  toDate?: string;
+  shiftId?: number;
+  farmerId?: number;
+  settlementPeriodId?: number;
+  paymentId?: number;
+  paymentMethod?: PaymentMethod;
+  status?: string;
+}
+
+export interface PdfExportRequest extends ReportPreviewRequest {
+  suggestedFilename: string;
+}
+
+export interface PdfExportResult {
+  cancelled: boolean;
+  fileName?: string;
+}
+
+export type ReportPreviewResult = any; // Will be properly typed below if needed, or left flexible for UI to cast.
+
+export interface Stage9SmokeSummary {
+  schemaUnchangedVersion6: boolean;
+  tablesUnchanged17: boolean;
+  dailySummaryExact: boolean;
+  cowBuffaloBreakdownExact: boolean;
+  shiftReportExact: boolean;
+  weightedQualityExact: boolean;
+  voidedCollectionsExcluded: boolean;
+  ledgerStatementExact: boolean;
+  settlementReportExact: boolean;
+  voidedPaymentsExcluded: boolean;
+  outstandingReportExact: boolean;
+  dashboardSummaryExact: boolean;
+  operatorPreviewAllowed: boolean;
+  unauthenticatedRejected: boolean;
+  htmlEscapingOk: boolean;
+  noExternalResources: boolean;
+  filenameSanitizationOk: boolean;
+  pdfMagicHeaderOk: boolean;
+  pdfNonEmptyOk: boolean;
+  temporaryPdfRemoved: boolean;
+  arbitraryPathNotExposed: boolean;
 }

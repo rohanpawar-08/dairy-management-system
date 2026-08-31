@@ -128,7 +128,28 @@ app.whenReady().then(async () => {
                 sqliteRes.data?.stage8?.fifoAllocationOk === true &&
                 sqliteRes.data?.stage8?.paymentVoidOk === true &&
                 sqliteRes.data?.stage8?.settlementHardDeleteRejected === true &&
-                sqliteRes.data?.stage8?.paymentHardDeleteRejected === true,
+                sqliteRes.data?.stage8?.paymentHardDeleteRejected === true &&
+                sqliteRes.data?.stage9?.schemaUnchangedVersion6 === true &&
+                sqliteRes.data?.stage9?.tablesUnchanged17 === true &&
+                sqliteRes.data?.stage9?.dailySummaryExact === true &&
+                sqliteRes.data?.stage9?.cowBuffaloBreakdownExact === true &&
+                sqliteRes.data?.stage9?.shiftReportExact === true &&
+                sqliteRes.data?.stage9?.weightedQualityExact === true &&
+                sqliteRes.data?.stage9?.voidedCollectionsExcluded === true &&
+                sqliteRes.data?.stage9?.ledgerStatementExact === true &&
+                sqliteRes.data?.stage9?.settlementReportExact === true &&
+                sqliteRes.data?.stage9?.voidedPaymentsExcluded === true &&
+                sqliteRes.data?.stage9?.outstandingReportExact === true &&
+                sqliteRes.data?.stage9?.dashboardSummaryExact === true &&
+                sqliteRes.data?.stage9?.operatorPreviewAllowed === true &&
+                sqliteRes.data?.stage9?.unauthenticatedRejected === true &&
+                sqliteRes.data?.stage9?.htmlEscapingOk === true &&
+                sqliteRes.data?.stage9?.noExternalResources === true &&
+                sqliteRes.data?.stage9?.filenameSanitizationOk === true &&
+                sqliteRes.data?.stage9?.pdfMagicHeaderOk === true &&
+                sqliteRes.data?.stage9?.pdfNonEmptyOk === true &&
+                sqliteRes.data?.stage9?.temporaryPdfRemoved === true &&
+                sqliteRes.data?.stage9?.arbitraryPathNotExposed === true,
               ping: pingRes,
               sqlite: sqliteRes,
               version: versionRes,

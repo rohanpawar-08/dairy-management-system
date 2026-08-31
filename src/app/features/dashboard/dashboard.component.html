@@ -152,15 +152,48 @@
           </div>
         </mat-card>
       }
+
+      <!-- Reports & Exports -->
+      <mat-card class="module-card clickable" (click)="navigateToReports()">
+        <div class="card-icon-box" style="background: #e1f5fe; color: #0277bd;">
+          <mat-icon>assessment</mat-icon>
+        </div>
+        <div class="card-content-box">
+          <h3>{{ 'reports.title' | translate }}</h3>
+          <p>{{ 'reports.pdfExport' | translate }}</p>
+          <button mat-flat-button color="primary" type="button">
+            <mat-icon>arrow_forward</mat-icon>
+            {{ 'reports.title' | translate }}
+          </button>
+        </div>
+      </mat-card>
     </div>
 
-    <!-- Future Modules Notice Banner -->
-    <div class="future-modules-card">
-      <mat-icon>info</mat-icon>
-      <div>
-        <h3>{{ 'dashboard.active_stage_title' | translate }}</h3>
-        <p>{{ 'dashboard.stage4_note' | translate }}</p>
+
+    <!-- Dynamic Dashboard Summary -->
+    @if (reportState.dashboardSummary(); as summary) {
+      <div class="dashboard-stats-grid" style="margin-top: 2rem; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+        <mat-card>
+          <mat-card-content>
+            <h4>Today's Litres</h4>
+            <p class="stat-value" style="font-size: 1.5rem; font-weight: bold;">{{ summary.todayLitresFormatted }} L</p>
+            <p class="stat-sub">Collections: {{ summary.todayCollectionCount }}</p>
+          </mat-card-content>
+        </mat-card>
+        <mat-card>
+          <mat-card-content>
+            <h4>Today's Amount</h4>
+            <p class="stat-value" style="font-size: 1.5rem; font-weight: bold;">{{ summary.todayAmountFormatted }}</p>
+          </mat-card-content>
+        </mat-card>
+        <mat-card>
+          <mat-card-content>
+            <h4>Total Outstanding</h4>
+            <p class="stat-value" style="color: #d32f2f; font-size: 1.5rem; font-weight: bold;">{{ summary.totalFarmerPayableFormatted }}</p>
+            <p class="stat-sub">Unpaid Farmers: {{ summary.unpaidFarmerCount }}</p>
+          </mat-card-content>
+        </mat-card>
       </div>
-    </div>
+    }
   </main>
 </div>

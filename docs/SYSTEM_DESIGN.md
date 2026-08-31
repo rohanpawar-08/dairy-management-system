@@ -866,4 +866,3 @@ dairy-management-system/
     ├── db/                            # SQLite repository, migration & void tests
     ├── ipc/                           # Preload & IPC contract tests
     └── e2e/                           # UI workflow tests
-```

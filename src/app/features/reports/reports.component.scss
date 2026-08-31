@@ -1,0 +1,47 @@
+.reports-container {
+  padding: 1rem;
+  max-width: 1200px;
+  margin: 0 auto;
+
+  .header-row {
+    margin-bottom: 1.5rem;
+    h1 {
+      margin: 0;
+      color: var(--mat-sys-on-surface);
+      font-size: 1.5rem;
+      font-weight: 500;
+    }
+  }
+
+  .filter-card {
+    margin-bottom: 1.5rem;
+    .filter-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      align-items: center;
+
+      mat-form-field {
+        width: 100%;
+      }
+
+      .action-buttons {
+        display: flex;
+        gap: 1rem;
+        align-items: center;
+        padding-bottom: 1.25rem; // Align with form fields
+      }
+    }
+  }
+
+  .preview-card {
+    .debug-preview {
+      background: var(--mat-sys-surface-container);
+      padding: 1rem;
+      border-radius: 4px;
+      overflow-x: auto;
+      font-family: monospace;
+      font-size: 0.9rem;
+    }
+  }
+}

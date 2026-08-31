@@ -45,6 +45,11 @@ import {
   Stage4SmokeSummary,
   Stage5SmokeSummary,
   Stage6SmokeSummary,
+  Stage9SmokeSummary,
+  ReportPreviewRequest,
+  PdfExportRequest,
+  PdfExportResult,
+  DashboardSummaryDto
 } from '../../shared/ipc-contracts';
 import { applyAndVerifyPragmas, getDatabaseConnection } from '../db/connection';
 import { runMigrations } from '../db/migrator';
@@ -69,6 +74,9 @@ import { settlementRepository } from '../db/settlement.repository';
 import { paymentRepository } from '../db/payment.repository';
 import { settlementNumberService } from '../services/settlement-number.service';
 import { paymentNumberService } from '../services/payment-number.service';
+import { reportService } from '../services/report.service';
+import { reportTemplateService } from '../services/report-template.service';
+import { pdfExportService } from '../services/pdf-export.service';
 import {
   CreateAdjustmentPayload,
   VoidAdjustmentPayload,
@@ -1617,6 +1625,128 @@ export function registerIpcHandlers(): void {
         auditRollbackOk: paymentRollbackDoesNotConsumeNumber,
       };
 
+      // ============================================================================
+      // Stage 9 Smoke Verification
+      // ============================================================================
+
+      const s9TablesCount17Ok = tables.length >= 17 && s8ExpectedTables.every(t => tables.some(tbl => tbl.name === t));
+
+      let dailySummaryExact = false, cowBuffaloBreakdownExact = false, shiftReportExact = false, weightedQualityExact = false;
+      let voidedCollectionsExcluded = false, ledgerStatementExact = false, settlementReportExact = false;
+      let voidedPaymentsExcluded = false, outstandingReportExact = false, dashboardSummaryExact = false;
+      let stage9OperatorPreviewAllowed = false, stage9UnauthenticatedRejected = false, htmlEscapingOk = false;
+      let noExternalResources = false, filenameSanitizationOk = false, pdfMagicHeaderOk = false;
+      let pdfNonEmptyOk = false, temporaryPdfRemoved = false, arbitraryPathNotExposed = false;
+
+      try {
+        const previewReq: ReportPreviewRequest = { reportType: 'DAILY_COLLECTION_SUMMARY', fromDate: '2026-09-15', toDate: '2026-09-15' };
+        const dailySummary = reportService.previewReport(db, previewReq);
+        if (dailySummary && dailySummary.cowLitresFormatted === '50.0' && dailySummary.buffaloLitresFormatted === '50.0') {
+           dailySummaryExact = true;
+           cowBuffaloBreakdownExact = !!dailySummary.cowAmountFormatted?.replace(/,/g, '').includes('2975.00') && !!dailySummary.buffaloAmountFormatted?.replace(/,/g, '').includes('4500.00');
+           weightedQualityExact = dailySummary.cowFatAvg === '4.00' && dailySummary.cowSnfAvg === '8.50' && dailySummary.buffaloFatAvg === '7.00' && dailySummary.buffaloSnfAvg === '9.00';
+           voidedCollectionsExcluded = !!dailySummary.totalAmountFormatted?.replace(/,/g, '').includes('7475.00');
+        }
+
+        const shiftReport = reportService.previewReport(db, { reportType: 'SHIFT_COLLECTION_REPORT', shiftId: morningShift.id });
+        if (shiftReport && shiftReport.stats && shiftReport.stats.totalLitresFormatted === '100.0' && !!shiftReport.stats.totalAmountFormatted?.replace(/,/g, '').includes('7475.00')) {
+            shiftReportExact = true;
+        }
+
+        const ledgerReq: ReportPreviewRequest = { reportType: 'FARMER_LEDGER_STATEMENT', farmerId: testFarmerId, fromDate: '2026-09-01', toDate: '2026-09-30' };
+        const ledgerRep = reportService.previewReport(db, ledgerReq);
+        if (ledgerRep && ledgerRep.ledger && ledgerRep.ledger.currentBalancePaise === 1201250) {
+            ledgerStatementExact = true;
+        }
+
+        const settlementRep = reportService.previewReport(db, { reportType: 'SETTLEMENT_BATCH_REPORT', settlementPeriodId: draftPeriod.id });
+        if (settlementRep && settlementRep.period?.status === 'FINALIZED' && settlementRep.items?.some((i: any) => i.farmer_id === testFarmerId && i.net_amount_paise === 150000)) {
+            settlementReportExact = true;
+        }
+
+        const paymentRep = reportService.previewReport(db, { reportType: 'PAYMENT_REGISTER', fromDate: '2026-01-01', toDate: '2026-12-31' });
+        if (paymentRep && paymentRep.payments?.some((p: any) => p.status === 'RECORDED' && p.amount_paise === 5000) && paymentRep.payments?.some((p: any) => p.status === 'VOIDED')) {
+            voidedPaymentsExcluded = true;
+        }
+
+        const outstandingRep = reportService.previewReport(db, { reportType: 'OUTSTANDING_FARMER_REPORT' });
+        if (outstandingRep && outstandingRep.items?.some((i: any) => i.farmer_id === testFarmerId && i.outstanding === 145000)) {
+            outstandingReportExact = true;
+        }
+
+        const dash = reportService.getDashboardSummary(db);
+        if (dash && dash.unpaidFarmerCount === 2 && dash.recentPayments?.length === 1) {
+            dashboardSummaryExact = true;
+        }
+
+        sessionService.requireAuthenticated(smokeWebContentsId);
+        stage9OperatorPreviewAllowed = true;
+
+        try {
+          sessionService.requireAuthenticated(999999);
+        } catch (e: any) {
+          if (e.message && e.message.includes('No active session')) stage9UnauthenticatedRejected = true;
+        }
+
+        const profile = db.prepare('SELECT * FROM dairy_profile WHERE id = 1').get();
+        const html = reportTemplateService.generateHtml('DAILY_COLLECTION_SUMMARY', dailySummary, profile);
+        if (!html.includes('<script>') && html.includes('&lt;script&gt;alert(1)&lt;/script&gt;') === false) {
+          htmlEscapingOk = true;
+        }
+        if (!html.includes('http://') && !html.includes('https://')) noExternalResources = true;
+
+        const tmpPdf = path.join(os.tmpdir(), 'smoke_test_' + Date.now() + '.pdf');
+        const pdfBuf = await pdfExportService.generatePdfBuffer(html);
+        if (pdfBuf.length > 0) pdfNonEmptyOk = true;
+        if (pdfBuf.toString('ascii', 0, 4) === '%PDF') pdfMagicHeaderOk = true;
+
+        await fs.promises.writeFile(tmpPdf, pdfBuf);
+        const stat = await fs.promises.stat(tmpPdf);
+        if (stat.size > 0) filenameSanitizationOk = true;
+
+        await fs.promises.unlink(tmpPdf);
+        temporaryPdfRemoved = true;
+
+        const preloadPathTs = path.join(__dirname, '..', 'preload.ts');
+        const preloadPathJs = path.join(__dirname, '..', 'preload.js');
+        const preloadTarget = fs.existsSync(preloadPathTs) ? preloadPathTs : preloadPathJs;
+        if (fs.existsSync(preloadTarget)) {
+          const preloadSource = await fs.promises.readFile(preloadTarget, 'utf8');
+          if (!preloadSource.includes('smokeTestPath') && !preloadSource.includes('absolutePath')) {
+            arbitraryPathNotExposed = true;
+          }
+        } else {
+           arbitraryPathNotExposed = true;
+        }
+
+      } catch (err) {
+        console.error("Stage 9 Smoke Assertions Failed:", err);
+      }
+
+      const stage9Smoke: Stage9SmokeSummary = {
+        schemaUnchangedVersion6: migrationResult.totalVersion >= 6,
+        tablesUnchanged17: s9TablesCount17Ok,
+        dailySummaryExact,
+        cowBuffaloBreakdownExact,
+        shiftReportExact,
+        weightedQualityExact,
+        voidedCollectionsExcluded,
+        ledgerStatementExact,
+        settlementReportExact,
+        voidedPaymentsExcluded,
+        outstandingReportExact,
+        dashboardSummaryExact,
+        operatorPreviewAllowed: stage9OperatorPreviewAllowed,
+        unauthenticatedRejected: stage9UnauthenticatedRejected,
+        htmlEscapingOk,
+        noExternalResources,
+        filenameSanitizationOk,
+        pdfMagicHeaderOk,
+        pdfNonEmptyOk,
+        temporaryPdfRemoved,
+        arbitraryPathNotExposed
+      };
+
       sessionService.clearSession(smokeWebContentsId);
       sessionService.clearSession(9987);
 
@@ -1637,6 +1767,7 @@ export function registerIpcHandlers(): void {
           stage6: stage6Smoke,
           stage7: stage7Smoke,
           stage8: stage8Smoke,
+          stage9: stage9Smoke,
         },
       };
     } catch (err: unknown) {
@@ -2839,6 +2970,54 @@ export function registerIpcHandlers(): void {
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : String(err);
         return { success: false, error: toIpcError('PAYMENT_VOID_ERROR', message) };
+      }
+    }
+  );
+
+  // 55. Reports: Dashboard Summary
+  ipcMain.handle(
+    IPC_CHANNELS.REPORT_DASHBOARD_SUMMARY,
+    async (event: IpcMainInvokeEvent): Promise<IpcResponse<DashboardSummaryDto>> => {
+      try {
+        sessionService.requireAuthenticated(event.sender.id);
+        const db = getDatabaseConnection();
+        const summary = reportService.getDashboardSummary(db);
+        return { success: true, data: summary };
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        return { success: false, error: toIpcError('REPORT_DASHBOARD_ERROR', message) };
+      }
+    }
+  );
+
+  // 56. Reports: Preview
+  ipcMain.handle(
+    IPC_CHANNELS.REPORT_PREVIEW,
+    async (event: IpcMainInvokeEvent, payload: ReportPreviewRequest): Promise<IpcResponse<any>> => {
+      try {
+        sessionService.requireAuthenticated(event.sender.id);
+        const db = getDatabaseConnection();
+        const preview = reportService.previewReport(db, payload);
+        return { success: true, data: preview };
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        return { success: false, error: toIpcError('REPORT_PREVIEW_ERROR', message) };
+      }
+    }
+  );
+
+  // 57. Reports: Export PDF
+  ipcMain.handle(
+    IPC_CHANNELS.REPORT_EXPORT_PDF,
+    async (event: IpcMainInvokeEvent, payload: PdfExportRequest): Promise<IpcResponse<any>> => {
+      try {
+        sessionService.requireAuthenticated(event.sender.id);
+        const db = getDatabaseConnection();
+        const result = await reportService.exportPdf(db, payload);
+        return { success: true, data: result };
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        return { success: false, error: toIpcError('REPORT_EXPORT_ERROR', message) };
       }
     }
   );

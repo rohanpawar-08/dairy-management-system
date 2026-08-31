@@ -417,5 +417,18 @@
     "voidPaymentSubtitle": "नोंदवलेले पेमेंट रद्द करण्याचे कारण प्रविष्ट करा",
     "voidReason": "रद्द करण्याचे कारण",
     "voidPaymentAction": "नक्की रद्द करा"
+  },
+  "reports": {
+    "title": "अहवाल आणि निर्यात",
+    "dailySummary": "दैनिक संकलन गोषवारा",
+    "shiftReport": "शिफ्ट संकलन अहवाल",
+    "ledgerStatement": "सभासद खाते उतारा",
+    "settlementBatch": "बिल वाटप अहवाल",
+    "paymentRegister": "पेमेंट रजिस्टर",
+    "outstandingReport": "थकीत रक्कम अहवाल",
+    "pdfExport": "PDF डाउनलोड करा",
+    "generating": "PDF तयार करत आहे...",
+    "generated": "PDF यशस्वीरित्या तयार झाले",
+    "cancelled": "निर्यात रद्द केली"
   }
 }

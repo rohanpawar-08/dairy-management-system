@@ -24,6 +24,7 @@
 - **[ADR-016](#adr-016-exclusion-of-cloud-backends-spring-boot-and-remote-auth)**: Exclusion of Cloud Backends, Spring Boot, and Remote Auth
 - **[ADR-017](#adr-017-node-built-in-cryptographic-credential-storage-and-memory-sessions)**: Node Built-in Cryptographic Credential Storage and Memory Sessions
 - **[ADR-018](#adr-018-n-api-prebuilt-native-sqlite-bindings-for-windows-electron-runtime)**: N-API Prebuilt Native SQLite Bindings for Windows Electron Runtime
+- **[ADR-023](#adr-023-reports--pdf-export-architecture)**: Reports & PDF Export Architecture
 
 ---
 
@@ -237,3 +238,14 @@
   5. **Deterministic FIFO Payment Allocation:** Recording payments (`PAY-YYYYMMDD-000001`) allocates strictly to positive outstanding finalized settlements in FIFO order (`period_start ASC, id ASC`). Payments exceeding positive outstanding balance are rejected.
   6. **Immutability & Non-Destructive Reversals:** Direct SQL `DELETE` operations on settlement and payment tables are blocked by database triggers. Payment voiding (`status = 'VOIDED'`) restores farmer outstanding balance while preserving sequence counter history.
 - **Rationale:** Guarantees zero double-counting of milk earnings, preserves historical integrity for auditing, and eliminates floating-point financial discrepancies.
+
+---
+
+### ADR-023: Reports & PDF Export Architecture
+- **Status:** Accepted
+- **Context:** The system needs to generate robust A4 reports and dashboard aggregations while guaranteeing exact integer precision, secure offline rendering of local scripts (Marathi/Devanagari), and maintaining process isolation.
+- **Decision:**
+  1. **PDF Engine:** Used Electron `BrowserWindow` printing to PDF (offline, sandboxed, no external calls, `nodeIntegration: false`, `contextIsolation: true`) instead of a bundled third-party binary, reducing complexity and external attack surface.
+  2. **Report Aggregation:** Weighted averages (FAT/SNF) use exact BigInt math to ensure no floating-point precision loss. No `Math.round` is used on intermediate results.
+  3. **Test Environment:** Angular reports components tested using Jasmine and integrated natively with `ng test`.
+- **Rationale:** Ensures high precision without floating-point drift, guarantees PDF rendering operates securely offline without external dependencies, and maintains consistency in testing approaches.

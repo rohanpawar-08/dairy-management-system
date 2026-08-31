@@ -695,4 +695,22 @@ export class ElectronBridgeService {
       return this.api.payments.void(payload);
     },
   };
+
+  /**
+   * Stage 9: Reports IPC Methods
+   */
+  public readonly reports = {
+    getDashboardSummary: async (): Promise<IpcResponse<any>> => {
+      if (!this.api?.reports) return { success: false, error: NO_BRIDGE_ERROR };
+      return this.api.reports.getDashboardSummary();
+    },
+    preview: async (payload: any): Promise<IpcResponse<any>> => {
+      if (!this.api?.reports) return { success: false, error: NO_BRIDGE_ERROR };
+      return this.api.reports.preview(payload);
+    },
+    exportPdf: async (payload: any): Promise<IpcResponse<any>> => {
+      if (!this.api?.reports) return { success: false, error: NO_BRIDGE_ERROR };
+      return this.api.reports.exportPdf(payload);
+    }
+  };
 }

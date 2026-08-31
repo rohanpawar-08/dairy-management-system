@@ -417,5 +417,18 @@
     "voidPaymentSubtitle": "Enter a mandatory reason to void this payment record",
     "voidReason": "Void Reason",
     "voidPaymentAction": "Confirm Void"
+  },
+  "reports": {
+    "title": "Reports & Exports",
+    "dailySummary": "Daily Collection Summary",
+    "shiftReport": "Shift Collection Report",
+    "ledgerStatement": "Farmer Ledger Statement",
+    "settlementBatch": "Settlement Batch Report",
+    "paymentRegister": "Payment Register",
+    "outstandingReport": "Outstanding Farmer Report",
+    "pdfExport": "Export PDF",
+    "generating": "Generating PDF...",
+    "generated": "PDF Generated Successfully",
+    "cancelled": "Export Cancelled"
   }
 }

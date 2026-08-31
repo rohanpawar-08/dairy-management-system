@@ -105,6 +105,10 @@ const CHANNELS = {
   PAYMENT_LIST: 'dairy:payment:list',
   PAYMENT_RECORD: 'dairy:payment:record',
   PAYMENT_VOID: 'dairy:payment:void',
+  // Stage 9 Report Channels
+  REPORT_DASHBOARD_SUMMARY: 'dairy:report:dashboard-summary',
+  REPORT_PREVIEW: 'dairy:report:preview',
+  REPORT_EXPORT_PDF: 'dairy:report:export-pdf',
 } as const;
 
 /**
@@ -334,6 +338,11 @@ const dairyApi: DairyApiBridge = {
       return ipcRenderer.invoke(CHANNELS.PAYMENT_VOID, payload);
     },
   },
+  reports: {
+    getDashboardSummary: () => ipcRenderer.invoke(CHANNELS.REPORT_DASHBOARD_SUMMARY),
+    preview: (payload: any) => ipcRenderer.invoke(CHANNELS.REPORT_PREVIEW, payload),
+    exportPdf: (payload: any) => ipcRenderer.invoke(CHANNELS.REPORT_EXPORT_PDF, payload),
+  }
 };
 
 // Expose safe API to the renderer process

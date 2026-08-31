@@ -183,7 +183,7 @@ Each stage represents an **independently testable milestone**. Development proce
 
 ---
 
-### Stage 9: Reports, Dashboard & A4 PDF Printing *(NEXT ACTIVE STAGE)*
+### Stage 9: Reports, Dashboard & A4 PDF Printing *(COMPLETED)*
 - **Objective:** Deliver shift registers, daily summaries, dashboard KPIs, and A4 printable statements with bundled Devanagari fonts.
 - **Entry Requirements:** Stage 8 verified.
 - **Deliverables:**
@@ -197,7 +197,7 @@ Each stage represents an **independently testable milestone**. Development proce
 
 ---
 
-### Stage 10: Full Backup & Restore Management UI
+### Stage 10: Full Backup & Restore Management UI *(NEXT ACTIVE STAGE)*
 - **Objective:** Implement full backup/restore UI, USB drive detection, retention management, pre-restore safety snapshots, and disaster recovery verification extending the existing `BackupService`.
 - **Entry Requirements:** Stage 9 verified.
 - **Deliverables:**
@@ -243,3 +243,4 @@ Each stage represents an **independently testable milestone**. Development proce
 3. **Days 11–17 (Week 2 Parallel Run & Deductions):** Record cattle-feed deductions, advances, and payments; print A4 Weekly Statements for all pilot farmers; gather feedback.
 4. **Days 18–24 (Live Primary Operation):** Software becomes primary recording tool; benchmark 50 consecutive entries (<15s target).
 5. **Days 25–30 (Resilience Testing & Final Review):** Perform USB restore drill, review audit trail, secure written sign-off.
+

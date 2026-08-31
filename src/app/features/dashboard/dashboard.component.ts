@@ -8,6 +8,7 @@ import { MatChipsModule } from '@angular/material/chips';
 import { TranslatePipe } from '../../core/pipes/translate.pipe';
 import { I18nService } from '../../core/services/i18n.service';
 import { AuthStateService } from '../../core/services/auth-state.service';
+import { ReportStateService } from '../../core/services/report-state.service';
 
 @Component({
   selector: 'app-dashboard',
@@ -26,12 +27,14 @@ import { AuthStateService } from '../../core/services/auth-state.service';
 export class DashboardComponent implements OnInit {
   readonly i18n = inject(I18nService);
   readonly authState = inject(AuthStateService);
+  readonly reportState = inject(ReportStateService);
   private readonly router = inject(Router);
 
   async ngOnInit(): Promise<void> {
     if (!this.authState.dairyProfile()) {
       await this.authState.loadProfile();
     }
+    await this.reportState.loadDashboardSummary();
   }
 
   navigateToFarmers(): void {
@@ -52,6 +55,10 @@ export class DashboardComponent implements OnInit {
 
   navigateToSettlements(): void {
     this.router.navigate(['/settlements']);
+  }
+
+  navigateToReports(): void {
+    this.router.navigate(['/reports']);
   }
 
   async onLogout(): Promise<void> {

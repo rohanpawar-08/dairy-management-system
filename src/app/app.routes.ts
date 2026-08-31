@@ -7,6 +7,7 @@ import { setupGuard } from './core/guards/setup.guard';
 import { loginGuard } from './core/guards/login.guard';
 import { authGuard } from './core/guards/auth.guard';
 import { ownerGuard } from './core/guards/owner.guard';
+import { ReportsComponent } from './features/reports/reports.component';
 import { inconsistentGuard } from './core/guards/inconsistent.guard';
 
 export const routes: Routes = [
@@ -59,6 +60,11 @@ export const routes: Routes = [
     path: 'inconsistent',
     component: InconsistentStateComponent,
     canActivate: [inconsistentGuard],
+  },
+  {
+    path: 'reports',
+    component: ReportsComponent,
+    canActivate: [authGuard],
   },
   {
     path: '',

@@ -1,0 +1,52 @@
+<div class="reports-container">
+  <div class="header-row">
+    <h1>{{ i18n.t('reports.title') }}</h1>
+  </div>
+
+  <mat-card class="filter-card">
+    <mat-card-content class="filter-grid">
+      <mat-form-field appearance="outline">
+        <mat-label>Report Type</mat-label>
+        <mat-select [ngModel]="selectedType()" (ngModelChange)="selectedType.set($event)">
+          <mat-option *ngFor="let type of reportTypes" [value]="type.value">
+            {{ i18n.t(type.labelKey) }}
+          </mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>From Date</mat-label>
+        <input matInput [matDatepicker]="fromPicker" [ngModel]="fromDate()" (ngModelChange)="fromDate.set($event)">
+        <mat-datepicker-toggle matIconSuffix [for]="fromPicker"></mat-datepicker-toggle>
+        <mat-datepicker #fromPicker></mat-datepicker>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>To Date</mat-label>
+        <input matInput [matDatepicker]="toPicker" [ngModel]="toDate()" (ngModelChange)="toDate.set($event)">
+        <mat-datepicker-toggle matIconSuffix [for]="toPicker"></mat-datepicker-toggle>
+        <mat-datepicker #toPicker></mat-datepicker>
+      </mat-form-field>
+
+      <div class="action-buttons">
+        <button mat-raised-button color="primary" (click)="preview()">
+          <mat-icon>visibility</mat-icon>
+          Preview
+        </button>
+        <button mat-raised-button color="accent" (click)="exportPdf()" [disabled]="state.isGeneratingPdf()">
+          <mat-icon>picture_as_pdf</mat-icon>
+          {{ state.isGeneratingPdf() ? i18n.t('reports.generating') : i18n.t('reports.pdfExport') }}
+        </button>
+      </div>
+    </mat-card-content>
+  </mat-card>
+
+  <mat-card class="preview-card" *ngIf="state.previewData()">
+    <mat-card-header>
+      <mat-card-title>Preview</mat-card-title>
+    </mat-card-header>
+    <mat-card-content>
+      <pre class="debug-preview">{{ state.previewData() | json }}</pre>
+    </mat-card-content>
+  </mat-card>
+</div>

@@ -25,6 +25,7 @@
     "test:collection": "node scripts/run-collection-tests.js",
     "test:ledger": "node scripts/run-ledger-tests.js",
     "test:settlements": "node scripts/run-settlement-tests.js",
+    "test:reports": "vitest run tests/integration/reports.spec.ts tests/unit/pdf-export.spec.ts tests/unit/report-template.spec.ts && ng test --include src/app/core/services/report-state.service.spec.ts --include src/app/features/reports/reports.component.spec.ts --watch=false",
     "test:ipc-smoke": "npm run build && node scripts/run-ipc-smoke.js",
     "build:smoke-pack": "npm run build && node scripts/run-smoke-pack.js",
     "pack:dir": "electron-builder --dir --config electron-builder.yml --publish never",

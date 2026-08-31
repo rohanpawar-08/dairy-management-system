@@ -144,3 +144,11 @@ All architectural decisions, technical specifications, governance policies, and 
 
 > **Do not write application code, create package manifests, or install npm modules during Stage 0.**
 > Scaffolding and implementation will proceed strictly stage-by-stage starting from Stage 1 as outlined in [ROADMAP.md](docs/ROADMAP.md).
+
+## Stage 9: Reports & Dashboard
+- Daily/Shift Collection Summaries
+- Farmer Ledger Statements
+- Settlement Batch Reports
+- Outstanding Farmer Reports
+- Offline Secure A4 PDF Generation
+- Exact Integer Aggregation (ROUND_HALF_UP)
