@@ -199,24 +199,24 @@
         <table mat-table [dataSource]="s.items" class="ledger-table full-width">
           <!-- Business Date Column -->
           <ng-container matColumnDef="businessDate">
-            <th mat-header-cell *mat-header-cellDef>{{ i18n.t('collection.businessDate') }}</th>
-            <td mat-cell *mat-cellDef="let element" [class.voided-row]="element.isVoided">
+            <th mat-header-cell *matHeaderCellDef>{{ i18n.t('collection.businessDate') }}</th>
+            <td mat-cell *matCellDef="let element" [class.voided-row]="element.isVoided">
               {{ element.businessDate }}
             </td>
           </ng-container>
 
           <!-- Reference Number Column -->
           <ng-container matColumnDef="referenceNumber">
-            <th mat-header-cell *mat-header-cellDef>{{ i18n.t('ledger.referenceNo') }}</th>
-            <td mat-cell *mat-cellDef="let element" class="mono bold" [class.voided-row]="element.isVoided">
+            <th mat-header-cell *matHeaderCellDef>{{ i18n.t('ledger.referenceNo') }}</th>
+            <td mat-cell *matCellDef="let element" class="mono bold" [class.voided-row]="element.isVoided">
               {{ element.referenceNumber }}
             </td>
           </ng-container>
 
           <!-- Source Type Column -->
           <ng-container matColumnDef="sourceType">
-            <th mat-header-cell *mat-header-cellDef>{{ i18n.t('ledger.entryType') }}</th>
-            <td mat-cell *mat-cellDef="let element" [class.voided-row]="element.isVoided">
+            <th mat-header-cell *matHeaderCellDef>{{ i18n.t('ledger.entryType') }}</th>
+            <td mat-cell *matCellDef="let element" [class.voided-row]="element.isVoided">
               <span class="type-pill" [ngClass]="element.sourceType">
                 {{ formatSourceType(element.sourceType) }}
               </span>
@@ -225,8 +225,8 @@
 
           <!-- Description Column -->
           <ng-container matColumnDef="description">
-            <th mat-header-cell *mat-header-cellDef>{{ i18n.t('common.description') }}</th>
-            <td mat-cell *mat-cellDef="let element" [class.voided-row]="element.isVoided">
+            <th mat-header-cell *matHeaderCellDef>{{ i18n.t('common.description') }}</th>
+            <td mat-cell *matCellDef="let element" [class.voided-row]="element.isVoided">
               <span>{{ element.description }}</span>
               <span *ngIf="element.isVoided" class="void-tag"> ({{ i18n.t('collection.voidedTag') }})</span>
             </td>
@@ -234,8 +234,8 @@
 
           <!-- Credit (+) Column -->
           <ng-container matColumnDef="credit">
-            <th mat-header-cell *mat-header-cellDef class="text-right">{{ i18n.t('ledger.credit') }} (+)</th>
-            <td mat-cell *mat-cellDef="let element" class="text-right credit-cell" [class.voided-row]="element.isVoided">
+            <th mat-header-cell *matHeaderCellDef class="text-right">{{ i18n.t('ledger.credit') }} (+)</th>
+            <td mat-cell *matCellDef="let element" class="text-right credit-cell" [class.voided-row]="element.isVoided">
               <span *ngIf="element.creditPaise > 0">+₹{{ (element.creditPaise / 100).toFixed(2) }}</span>
               <span *ngIf="element.creditPaise === 0" class="dim-dash">-</span>
             </td>
@@ -243,8 +243,8 @@
 
           <!-- Debit (-) Column -->
           <ng-container matColumnDef="debit">
-            <th mat-header-cell *mat-header-cellDef class="text-right">{{ i18n.t('ledger.debit') }} (-)</th>
-            <td mat-cell *mat-cellDef="let element" class="text-right debit-cell" [class.voided-row]="element.isVoided">
+            <th mat-header-cell *matHeaderCellDef class="text-right">{{ i18n.t('ledger.debit') }} (-)</th>
+            <td mat-cell *matCellDef="let element" class="text-right debit-cell" [class.voided-row]="element.isVoided">
               <span *ngIf="element.debitPaise > 0">-₹{{ (element.debitPaise / 100).toFixed(2) }}</span>
               <span *ngIf="element.debitPaise === 0" class="dim-dash">-</span>
             </td>
@@ -252,10 +252,10 @@
 
           <!-- Running Balance Column -->
           <ng-container matColumnDef="runningBalance">
-            <th mat-header-cell *mat-header-cellDef class="text-right">{{ i18n.t('ledger.runningBalance') }}</th>
+            <th mat-header-cell *matHeaderCellDef class="text-right">{{ i18n.t('ledger.runningBalance') }}</th>
             <td
               mat-cell
-              *mat-cellDef="let element"
+              *matCellDef="let element"
               class="text-right bold mono-num"
               [class.positive-balance]="element.runningBalancePaise > 0"
               [class.negative-balance]="element.runningBalancePaise < 0"
@@ -266,8 +266,8 @@
 
           <!-- Actions Column -->
           <ng-container matColumnDef="actions">
-            <th mat-header-cell *mat-header-cellDef class="text-center">{{ i18n.t('common.actions') }}</th>
-            <td mat-cell *mat-cellDef="let element" class="text-center">
+            <th mat-header-cell *matHeaderCellDef class="text-center">{{ i18n.t('common.actions') }}</th>
+            <td mat-cell *matCellDef="let element" class="text-center">
               <button
                 *ngIf="auth.isOwner() && !element.isVoided && (element.sourceType === 'CREDIT' || element.sourceType === 'DEDUCTION' || element.sourceType === 'ADVANCE')"
                 mat-icon-button
