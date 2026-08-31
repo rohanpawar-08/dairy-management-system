@@ -79,11 +79,25 @@ app.whenReady().then(async () => {
       const win = await createWindow();
 
       // Brief yield to ensure renderer JS loop has processed DOM bootstrap
-      await new Promise((r) => setTimeout(r, 250));
+      await new Promise((r) => setTimeout(r, 500));
 
       // Execute real renderer -> preload -> main IPC test
       const testResult = await win.webContents.executeJavaScript(`
         (async () => {
+          // Wait for Angular bootstrap rendering
+          let attempts = 0;
+          while (attempts < 50) {
+            const appRoot = document.querySelector('app-root');
+            if (appRoot && appRoot.children.length > 0 && document.body.innerText.trim().length > 0) {
+              break;
+            }
+            await new Promise(r => setTimeout(r, 200));
+            attempts++;
+          }
+
+          const appRootFinal = document.querySelector('app-root');
+          const rendererBootstrapOk = !!(appRootFinal && appRootFinal.children.length > 0 && document.body.innerText.trim().length > 0);
+
           if (!window.dairyApi) {
             return { success: false, error: 'window.dairyApi is not defined in renderer context' };
           }
@@ -93,6 +107,7 @@ app.whenReady().then(async () => {
             const versionRes = await window.dairyApi.getAppVersion();
             return {
               success:
+                rendererBootstrapOk &&
                 pingRes.success &&
                 sqliteRes.success &&
                 versionRes.success &&
@@ -150,6 +165,7 @@ app.whenReady().then(async () => {
                 sqliteRes.data?.stage9?.pdfNonEmptyOk === true &&
                 sqliteRes.data?.stage9?.temporaryPdfRemoved === true &&
                 sqliteRes.data?.stage9?.arbitraryPathNotExposed === true,
+              rendererBootstrapOk,
               ping: pingRes,
               sqlite: sqliteRes,
               version: versionRes,

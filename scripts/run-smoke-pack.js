@@ -245,7 +245,7 @@ async function runSmokePack() {
               s9.temporaryPdfRemoved === true &&
               s9.arbitraryPathNotExposed === true;
 
-            if (s5Ok && s6Ok && s7Ok && s8Ok && s9Ok) {
+            if (parsed.rendererBootstrapOk === true && s5Ok && s6Ok && s7Ok && s8Ok && s9Ok) {
               validatedOk = true;
             }
           }
