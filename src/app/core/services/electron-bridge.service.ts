@@ -53,6 +53,12 @@ import {
   RecordPaymentPayload,
   VoidPaymentPayload,
   FarmerOutstandingDto,
+  BackupResultDto,
+  BackupHistoryItemDto,
+  BackupDestinationDto,
+  RestoreCandidateDto,
+  ExecuteRestorePayload,
+  RestoreResultDto,
 } from '../../../../shared/ipc-contracts';
 
 const NO_BRIDGE_ERROR: IpcErrorDetails = {
@@ -712,5 +718,40 @@ export class ElectronBridgeService {
       if (!this.api?.reports) return { success: false, error: NO_BRIDGE_ERROR };
       return this.api.reports.exportPdf(payload);
     }
+  };
+
+  /**
+   * Stage 10: Backup IPC Methods
+   */
+  public readonly backup = {
+    create: async (): Promise<IpcResponse<BackupResultDto>> => {
+      if (!this.api?.backup) return { success: false, error: NO_BRIDGE_ERROR };
+      return this.api.backup.create();
+    },
+
+    getHistory: async (limit?: number): Promise<IpcResponse<BackupHistoryItemDto[]>> => {
+      if (!this.api?.backup) return { success: false, error: NO_BRIDGE_ERROR };
+      return this.api.backup.getHistory(limit);
+    },
+
+    selectDestination: async (): Promise<IpcResponse<BackupDestinationDto>> => {
+      if (!this.api?.backup) return { success: false, error: NO_BRIDGE_ERROR };
+      return this.api.backup.selectDestination();
+    },
+  };
+
+  /**
+   * Stage 10: Restore IPC Methods
+   */
+  public readonly restore = {
+    selectCandidate: async (): Promise<IpcResponse<RestoreCandidateDto>> => {
+      if (!this.api?.restore) return { success: false, error: NO_BRIDGE_ERROR };
+      return this.api.restore.selectCandidate();
+    },
+
+    execute: async (payload: ExecuteRestorePayload): Promise<IpcResponse<RestoreResultDto>> => {
+      if (!this.api?.restore) return { success: false, error: NO_BRIDGE_ERROR };
+      return this.api.restore.execute(payload);
+    },
   };
 }

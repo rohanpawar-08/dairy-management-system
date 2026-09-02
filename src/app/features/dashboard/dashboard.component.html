@@ -151,6 +151,21 @@
             </button>
           </div>
         </mat-card>
+
+        <!-- Backup & Database Restore (Owner Only) -->
+        <mat-card class="module-card clickable" (click)="navigateToBackupRestore()">
+          <div class="card-icon-box" style="background: #ede7f6; color: #512da8;">
+            <mat-icon>settings_backup_restore</mat-icon>
+          </div>
+          <div class="card-content-box">
+            <h3>{{ 'backupRestore.title' | translate }}</h3>
+            <p>{{ 'backupRestore.moduleDescription' | translate }}</p>
+            <button mat-flat-button color="primary" type="button">
+              <mat-icon>arrow_forward</mat-icon>
+              {{ 'backupRestore.open' | translate }}
+            </button>
+          </div>
+        </mat-card>
       }
 
       <!-- Reports & Exports -->

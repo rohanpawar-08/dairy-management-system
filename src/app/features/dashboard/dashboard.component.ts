@@ -61,6 +61,10 @@ export class DashboardComponent implements OnInit {
     this.router.navigate(['/reports']);
   }
 
+  navigateToBackupRestore(): void {
+    this.router.navigate(['/backup-restore']);
+  }
+
   async onLogout(): Promise<void> {
     await this.authState.logout();
   }

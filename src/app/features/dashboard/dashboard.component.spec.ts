@@ -74,6 +74,18 @@ describe('DashboardComponent (Angular Unit)', () => {
     expect(routerMock.navigate).toHaveBeenCalledWith(['/rate-plans']);
   });
 
+  it('renders Backup & Restore navigation card for Owner and navigates on click', () => {
+    const fixture = TestBed.createComponent(DashboardComponent);
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.textContent).toContain('डेटाबेस बॅकअप आणि पुनर्संचयन');
+
+    const component = fixture.componentInstance;
+    component.navigateToBackupRestore();
+    expect(routerMock.navigate).toHaveBeenCalledWith(['/backup-restore']);
+  });
+
   it('hides Rate Plans navigation card when user is not an Owner', async () => {
     (mockAuthState.isOwner as any).set(false);
     (mockAuthState.isOperator as any).set(true);

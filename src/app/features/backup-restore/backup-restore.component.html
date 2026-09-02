@@ -1,0 +1,250 @@
+<div class="backup-restore-container">
+  <!-- Page Header -->
+  <header class="page-header">
+    <div class="header-left">
+      <button
+        mat-icon-button
+        type="button"
+        (click)="navigateToDashboard()"
+        [matTooltip]="i18n.t('common.back')"
+        aria-label="Back to Dashboard"
+      >
+        <mat-icon>arrow_back</mat-icon>
+      </button>
+      <div>
+        <h1 class="page-title">{{ i18n.t('backupRestore.title') }}</h1>
+        <p class="page-subtitle">{{ i18n.t('backupRestore.moduleDescription') }}</p>
+      </div>
+    </div>
+  </header>
+
+  <!-- Notification & Status Banners -->
+  <section aria-live="polite" class="alerts-section">
+    <!-- Success Banner -->
+    @if (state.successMessage()) {
+      <div class="alert-banner alert-success" role="status">
+        <mat-icon>check_circle</mat-icon>
+        <span>{{ state.successMessage() }}</span>
+      </div>
+    }
+
+    <!-- Notice / Cancel Banner -->
+    @if (state.noticeMessage()) {
+      <div class="alert-banner alert-info" role="status">
+        <mat-icon>info</mat-icon>
+        <span>{{ state.noticeMessage() }}</span>
+      </div>
+    }
+
+    <!-- Error Banner -->
+    @if (state.errorMessage()) {
+      <div class="alert-banner alert-error" role="alert">
+        <mat-icon>error</mat-icon>
+        <span>{{ state.errorMessage() }}</span>
+      </div>
+    }
+
+    <!-- Restore In Progress Banner -->
+    @if (state.isRestoring()) {
+      <div class="alert-banner alert-warning" role="alert">
+        <mat-spinner diameter="24"></mat-spinner>
+        <span>{{ i18n.t('backupRestore.restoreInProgress') }}</span>
+      </div>
+    }
+  </section>
+
+  <!-- Action Panels Grid -->
+  <div class="actions-grid">
+    <!-- 1. Manual Backup Panel -->
+    <mat-card class="action-card">
+      <div class="card-header-row">
+        <div class="icon-circle backup-icon">
+          <mat-icon>cloud_upload</mat-icon>
+        </div>
+        <div>
+          <h2>{{ i18n.t('backupRestore.backupSection') }}</h2>
+          <p class="card-desc">{{ i18n.t('backupRestore.backupDescription') }}</p>
+        </div>
+      </div>
+
+      <div class="card-buttons">
+        <button
+          mat-raised-button
+          color="primary"
+          type="button"
+          (click)="handleCreateBackup()"
+          [disabled]="state.isCreatingBackup() || state.isRestoring()"
+          aria-label="Create Default Backup"
+        >
+          @if (state.isCreatingBackup()) {
+            <mat-spinner diameter="18" class="button-spinner"></mat-spinner>
+          } @else {
+            <mat-icon>save</mat-icon>
+          }
+          <span>{{ i18n.t('backupRestore.createBackupBtn') }}</span>
+        </button>
+
+        <button
+          mat-stroked-button
+          color="primary"
+          type="button"
+          (click)="handleSelectDestinationAndBackup()"
+          [disabled]="state.isCreatingBackup() || state.isRestoring()"
+          aria-label="Select Destination Folder and Create Backup"
+        >
+          <mat-icon>folder_open</mat-icon>
+          <span>{{ i18n.t('backupRestore.selectDestinationBtn') }}</span>
+        </button>
+      </div>
+    </mat-card>
+
+    <!-- 2. Safe Restore Panel -->
+    <mat-card class="action-card">
+      <div class="card-header-row">
+        <div class="icon-circle restore-icon">
+          <mat-icon>restore</mat-icon>
+        </div>
+        <div>
+          <h2>{{ i18n.t('backupRestore.restoreSection') }}</h2>
+          <p class="card-desc">{{ i18n.t('backupRestore.restoreDescription') }}</p>
+        </div>
+      </div>
+
+      <div class="card-buttons">
+        <button
+          mat-raised-button
+          color="accent"
+          type="button"
+          (click)="handleSelectCandidate()"
+          [disabled]="state.isCreatingBackup() || state.isRestoring()"
+          aria-label="Select Backup File to Restore"
+        >
+          <mat-icon>file_open</mat-icon>
+          <span>{{ i18n.t('backupRestore.selectCandidateBtn') }}</span>
+        </button>
+      </div>
+
+      <!-- Selected Candidate Metadata Card -->
+      @if (state.selectedCandidate(); as candidate) {
+        @if (candidate.token) {
+          <div class="candidate-box" aria-labelledby="candidate-heading">
+            <h3 id="candidate-heading" class="candidate-title">
+              <mat-icon>inventory_2</mat-icon>
+              <span>{{ i18n.t('backupRestore.candidateSelectedTitle') }}</span>
+            </h3>
+
+            <div class="candidate-meta">
+              <div class="meta-item">
+                <span class="meta-k">{{ i18n.t('backupRestore.candidateFilename') }}:</span>
+                <span class="meta-v">{{ candidate.displayName }}</span>
+              </div>
+              <div class="meta-item">
+                <span class="meta-k">{{ i18n.t('backupRestore.candidateSize') }}:</span>
+                <span class="meta-v">{{ state.formatBytes(candidate.sizeBytes || 0) }}</span>
+              </div>
+            </div>
+
+            <div class="candidate-actions">
+              <button
+                mat-stroked-button
+                type="button"
+                (click)="handleClearCandidate()"
+                [disabled]="state.isRestoring()"
+              >
+                {{ i18n.t('backupRestore.clearCandidateBtn') }}
+              </button>
+              <button
+                mat-flat-button
+                color="warn"
+                type="button"
+                (click)="openRestoreConfirmDialog()"
+                [disabled]="state.isRestoring()"
+                aria-label="Proceed to Confirmation Dialog"
+              >
+                <mat-icon>warning</mat-icon>
+                <span>{{ i18n.t('backupRestore.confirmRestoreBtn') }}</span>
+              </button>
+            </div>
+          </div>
+        }
+      }
+    </mat-card>
+  </div>
+
+  <!-- 3. Backup History Section -->
+  <section class="history-section" aria-labelledby="history-heading">
+    <div class="section-header">
+      <h2 id="history-heading">{{ i18n.t('backupRestore.historySection') }}</h2>
+      <button
+        mat-icon-button
+        type="button"
+        (click)="state.loadHistory()"
+        [disabled]="state.isLoadingHistory() || state.isRestoring()"
+        [matTooltip]="i18n.t('common.refresh')"
+        aria-label="Refresh Backup History"
+      >
+        <mat-icon>refresh</mat-icon>
+      </button>
+    </div>
+
+    @if (state.isLoadingHistory()) {
+      <div class="loading-box">
+        <mat-spinner diameter="36"></mat-spinner>
+      </div>
+    } @else if (state.history().length === 0) {
+      <div class="empty-state">
+        <mat-icon>history_toggle_off</mat-icon>
+        <p>{{ i18n.t('backupRestore.noHistory') }}</p>
+      </div>
+    } @else {
+      <div class="table-container mat-elevation-z1">
+        <table mat-table [dataSource]="state.history()" class="history-table">
+          <!-- Filename Column -->
+          <ng-container matColumnDef="filename">
+            <th mat-header-cell *matHeaderCellDef>{{ i18n.t('backupRestore.colFilename') }}</th>
+            <td mat-cell *matCellDef="let row" class="filename-cell">
+              <mat-icon class="file-icon">description</mat-icon>
+              <span>{{ row.displayName }}</span>
+            </td>
+          </ng-container>
+
+          <!-- Size Column -->
+          <ng-container matColumnDef="size">
+            <th mat-header-cell *matHeaderCellDef>{{ i18n.t('backupRestore.colSize') }}</th>
+            <td mat-cell *matCellDef="let row">{{ state.formatBytes(row.sizeBytes) }}</td>
+          </ng-container>
+
+          <!-- Trigger Column -->
+          <ng-container matColumnDef="trigger">
+            <th mat-header-cell *matHeaderCellDef>{{ i18n.t('backupRestore.colTrigger') }}</th>
+            <td mat-cell *matCellDef="let row">
+              <span class="trigger-badge" [ngClass]="'trigger-' + row.triggerType.toLowerCase()">
+                {{ getTriggerLabel(row.triggerType) }}
+              </span>
+            </td>
+          </ng-container>
+
+          <!-- Verification Column -->
+          <ng-container matColumnDef="verification">
+            <th mat-header-cell *matHeaderCellDef>{{ i18n.t('backupRestore.colVerification') }}</th>
+            <td mat-cell *matCellDef="let row">
+              <span class="verified-badge">
+                <mat-icon>verified</mat-icon>
+                {{ i18n.t('backupRestore.verified') }}
+              </span>
+            </td>
+          </ng-container>
+
+          <!-- Date Column -->
+          <ng-container matColumnDef="date">
+            <th mat-header-cell *matHeaderCellDef>{{ i18n.t('backupRestore.colDate') }}</th>
+            <td mat-cell *matCellDef="let row">{{ formatDate(row.createdAt) }}</td>
+          </ng-container>
+
+          <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+          <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+        </table>
+      </div>
+    }
+  </section>
+</div>

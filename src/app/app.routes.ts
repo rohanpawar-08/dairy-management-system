@@ -67,6 +67,12 @@ export const routes: Routes = [
     canActivate: [authGuard],
   },
   {
+    path: 'backup-restore',
+    loadComponent: () =>
+      import('./features/backup-restore/backup-restore.component').then((m) => m.BackupRestoreComponent),
+    canActivate: [authGuard, ownerGuard],
+  },
+  {
     path: '',
     pathMatch: 'full',
     redirectTo: 'dashboard',
