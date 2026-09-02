@@ -42,6 +42,7 @@ import type {
   GetFarmerLedgerPayload,
   AdjustmentDto,
   LedgerSummaryDto,
+  ExecuteRestorePayload,
 } from '../shared/ipc-contracts';
 
 // Inlined channel constants so preload is completely self-contained in sandboxed renderer
@@ -109,6 +110,12 @@ const CHANNELS = {
   REPORT_DASHBOARD_SUMMARY: 'dairy:report:dashboard-summary',
   REPORT_PREVIEW: 'dairy:report:preview',
   REPORT_EXPORT_PDF: 'dairy:report:export-pdf',
+  // Stage 10 Backup & Restore Channels
+  BACKUP_CREATE: 'dairy:backup:create',
+  BACKUP_GET_HISTORY: 'dairy:backup:get-history',
+  BACKUP_SELECT_DESTINATION: 'dairy:backup:select-destination',
+  RESTORE_SELECT_CANDIDATE: 'dairy:restore:select-candidate',
+  RESTORE_EXECUTE: 'dairy:restore:execute',
 } as const;
 
 /**
@@ -342,7 +349,17 @@ const dairyApi: DairyApiBridge = {
     getDashboardSummary: () => ipcRenderer.invoke(CHANNELS.REPORT_DASHBOARD_SUMMARY),
     preview: (payload: any) => ipcRenderer.invoke(CHANNELS.REPORT_PREVIEW, payload),
     exportPdf: (payload: any) => ipcRenderer.invoke(CHANNELS.REPORT_EXPORT_PDF, payload),
-  }
+  },
+  // Stage 10 Backup & Restore Methods
+  backup: {
+    create: () => ipcRenderer.invoke(CHANNELS.BACKUP_CREATE),
+    getHistory: (limit?: number) => ipcRenderer.invoke(CHANNELS.BACKUP_GET_HISTORY, limit),
+    selectDestination: () => ipcRenderer.invoke(CHANNELS.BACKUP_SELECT_DESTINATION),
+  },
+  restore: {
+    selectCandidate: () => ipcRenderer.invoke(CHANNELS.RESTORE_SELECT_CANDIDATE),
+    execute: (payload: ExecuteRestorePayload) => ipcRenderer.invoke(CHANNELS.RESTORE_EXECUTE, payload),
+  },
 };
 
 // Expose safe API to the renderer process

@@ -451,6 +451,12 @@ export const IPC_CHANNELS = {
   REPORT_DASHBOARD_SUMMARY: 'dairy:report:dashboard-summary',
   REPORT_PREVIEW: 'dairy:report:preview',
   REPORT_EXPORT_PDF: 'dairy:report:export-pdf',
+  // Stage 10 Backup & Restore Channels
+  BACKUP_CREATE: 'dairy:backup:create',
+  BACKUP_GET_HISTORY: 'dairy:backup:get-history',
+  BACKUP_SELECT_DESTINATION: 'dairy:backup:select-destination',
+  RESTORE_SELECT_CANDIDATE: 'dairy:restore:select-candidate',
+  RESTORE_EXECUTE: 'dairy:restore:execute',
 } as const;
 
 export type IpcChannel = (typeof IPC_CHANNELS)[keyof typeof IPC_CHANNELS];
@@ -723,6 +729,16 @@ export interface DairyApiBridge {
     getDashboardSummary: () => Promise<IpcResponse<DashboardSummaryDto>>;
     preview: (payload: ReportPreviewRequest) => Promise<IpcResponse<ReportPreviewResult>>;
     exportPdf: (payload: PdfExportRequest) => Promise<IpcResponse<PdfExportResult>>;
+  };
+  // Stage 10 Backup & Restore Methods
+  backup: {
+    create: () => Promise<IpcResponse<BackupResultDto>>;
+    getHistory: (limit?: number) => Promise<IpcResponse<BackupHistoryItemDto[]>>;
+    selectDestination: () => Promise<IpcResponse<BackupDestinationDto>>;
+  };
+  restore: {
+    selectCandidate: () => Promise<IpcResponse<RestoreCandidateDto>>;
+    execute: (payload: ExecuteRestorePayload) => Promise<IpcResponse<RestoreResultDto>>;
   };
 }
 
@@ -1156,4 +1172,47 @@ export interface Stage9SmokeSummary {
   pdfNonEmptyOk: boolean;
   temporaryPdfRemoved: boolean;
   arbitraryPathNotExposed: boolean;
+}
+
+// ============================================================================
+// Stage 10 Backup & Restore DTOs
+// ============================================================================
+
+export interface BackupResultDto {
+  displayName: string;
+  sizeBytes: number;
+  checksumSha256: string;
+  migrationVersion: number;
+  createdAt: string;
+}
+
+export interface BackupHistoryItemDto {
+  displayName: string;
+  sizeBytes: number;
+  checksumSha256: string;
+  triggerType: string;
+  createdAt: string;
+}
+
+export interface BackupDestinationDto {
+  cancelled: boolean;
+  displayPath?: string;
+}
+
+export interface RestoreCandidateDto {
+  cancelled: boolean;
+  token?: string;
+  displayName?: string;
+  sizeBytes?: number;
+}
+
+export interface ExecuteRestorePayload {
+  token: string;
+  confirmed: boolean;
+}
+
+export interface RestoreResultDto {
+  success: boolean;
+  safetyBackupName: string | null;
+  restartScheduled: boolean;
 }

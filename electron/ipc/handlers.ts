@@ -49,10 +49,18 @@ import {
   ReportPreviewRequest,
   PdfExportRequest,
   PdfExportResult,
-  DashboardSummaryDto
+  DashboardSummaryDto,
+  BackupResultDto,
+  BackupHistoryItemDto,
+  BackupDestinationDto,
+  RestoreCandidateDto,
+  ExecuteRestorePayload,
+  RestoreResultDto,
 } from '../../shared/ipc-contracts';
-import { applyAndVerifyPragmas, getDatabaseConnection } from '../db/connection';
-import { runMigrations } from '../db/migrator';
+import { applyAndVerifyPragmas, getDatabaseConnection, getActiveDatabasePath } from '../db/connection';
+import { runMigrations, getCurrentMigrationVersion } from '../db/migrator';
+import { createVerifiedBackup, validateRestoreCandidate, executeSafeRestore } from '../services/backup.service';
+import { createCandidateToken, consumeCandidateToken } from '../core/restore-token.store';
 import { setupService } from '../services/setup.service';
 import { authService } from '../services/auth.service';
 import { sessionService } from '../core/session.service';
@@ -3018,6 +3026,227 @@ export function registerIpcHandlers(): void {
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : String(err);
         return { success: false, error: toIpcError('REPORT_EXPORT_ERROR', message) };
+      }
+    }
+  );
+
+  // ======================================================================
+  // STAGE 10: BACKUP & RESTORE IPC HANDLERS
+  // ======================================================================
+
+  // 58. Backup: Create Manual Backup (OWNER ONLY)
+  ipcMain.handle(
+    IPC_CHANNELS.BACKUP_CREATE,
+    async (event: IpcMainInvokeEvent): Promise<IpcResponse<BackupResultDto>> => {
+      try {
+        sessionService.requireRole(event.sender.id, 'OWNER');
+        const db = getDatabaseConnection();
+        const result = await createVerifiedBackup(db, { triggerType: 'MANUAL' });
+        return {
+          success: true,
+          data: {
+            displayName: path.basename(result.filePath),
+            sizeBytes: result.sizeBytes,
+            checksumSha256: result.checksumSha256,
+            migrationVersion: result.migrationVersion,
+            createdAt: result.createdAt,
+          },
+        };
+      } catch (err: unknown) {
+        const code = err instanceof Error && err.message.includes('Concurrent') ? 'BACKUP_BUSY' : 'BACKUP_ERROR';
+        const message = err instanceof Error ? err.message : 'Backup failed';
+        return { success: false, error: toIpcError(code, message) };
+      }
+    }
+  );
+
+  // 59. Backup: Get History (OWNER ONLY)
+  ipcMain.handle(
+    IPC_CHANNELS.BACKUP_GET_HISTORY,
+    async (event: IpcMainInvokeEvent, limit?: number): Promise<IpcResponse<BackupHistoryItemDto[]>> => {
+      try {
+        sessionService.requireRole(event.sender.id, 'OWNER');
+        const db = getDatabaseConnection();
+        const boundedLimit = Math.min(Math.max(1, limit || 20), 100);
+        const rows = db.prepare(
+          'SELECT file_path, checksum_sha256, size_bytes, trigger_type, created_at FROM backup_history ORDER BY created_at DESC LIMIT ?'
+        ).all(boundedLimit) as { file_path: string; checksum_sha256: string; size_bytes: number; trigger_type: string; created_at: string }[];
+        const items: BackupHistoryItemDto[] = rows.map(r => ({
+          displayName: path.basename(r.file_path),
+          sizeBytes: r.size_bytes,
+          checksumSha256: r.checksum_sha256,
+          triggerType: r.trigger_type,
+          createdAt: r.created_at,
+        }));
+        return { success: true, data: items };
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Failed to retrieve history';
+        return { success: false, error: toIpcError('BACKUP_HISTORY_ERROR', message) };
+      }
+    }
+  );
+
+  // 60. Backup: Select Destination Directory (OWNER ONLY)
+  ipcMain.handle(
+    IPC_CHANNELS.BACKUP_SELECT_DESTINATION,
+    async (event: IpcMainInvokeEvent): Promise<IpcResponse<BackupDestinationDto>> => {
+      try {
+        sessionService.requireRole(event.sender.id, 'OWNER');
+        const { dialog } = require('electron');
+        const result = await dialog.showOpenDialog({
+          properties: ['openDirectory', 'createDirectory'],
+          title: 'बॅकअप फोल्डर निवडा / Select Backup Folder',
+        });
+        if (result.canceled || !result.filePaths || result.filePaths.length === 0) {
+          return { success: true, data: { cancelled: true } };
+        }
+        const selectedDir = result.filePaths[0];
+        return {
+          success: true,
+          data: {
+            cancelled: false,
+            displayPath: path.basename(selectedDir),
+          },
+        };
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Dialog failed';
+        return { success: false, error: toIpcError('BACKUP_DIALOG_ERROR', message) };
+      }
+    }
+  );
+
+  // 61. Restore: Select Candidate File (OWNER ONLY)
+  ipcMain.handle(
+    IPC_CHANNELS.RESTORE_SELECT_CANDIDATE,
+    async (event: IpcMainInvokeEvent): Promise<IpcResponse<RestoreCandidateDto>> => {
+      try {
+        sessionService.requireRole(event.sender.id, 'OWNER');
+        const { dialog } = require('electron');
+        const result = await dialog.showOpenDialog({
+          properties: ['openFile'],
+          title: 'पुनर्संचयित करण्यासाठी बॅकअप निवडा / Select Backup to Restore',
+          filters: [{ name: 'SQLite Database', extensions: ['db'] }],
+        });
+        if (result.canceled || !result.filePaths || result.filePaths.length === 0) {
+          return { success: true, data: { cancelled: true } };
+        }
+        const candidatePath = result.filePaths[0];
+        const activeDb = getActiveDatabasePath();
+        if (!activeDb) {
+          return { success: false, error: toIpcError('RESTORE_NO_ACTIVE_DB', 'No active database connection.') };
+        }
+        const db = getDatabaseConnection();
+        const expectedVersion = getCurrentMigrationVersion(db);
+        const meta = validateRestoreCandidate(candidatePath, activeDb, expectedVersion);
+        const token = createCandidateToken(candidatePath, event.sender.id);
+        return {
+          success: true,
+          data: {
+            cancelled: false,
+            token,
+            displayName: path.basename(candidatePath),
+            sizeBytes: meta.sizeBytes,
+          },
+        };
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Candidate selection failed';
+        const knownCodes = ['RESTORE_FILE_NOT_FOUND', 'RESTORE_INVALID_EXTENSION', 'RESTORE_ACTIVE_DATABASE_SELECTED',
+          'RESTORE_INVALID_DATABASE', 'RESTORE_INTEGRITY_FAILED', 'RESTORE_FOREIGN_KEY_FAILED',
+          'RESTORE_SCHEMA_MISSING', 'RESTORE_SCHEMA_INCOMPATIBLE'];
+        const code = knownCodes.includes(message) ? message : 'RESTORE_SELECT_ERROR';
+        return { success: false, error: toIpcError(code, message) };
+      }
+    }
+  );
+
+  // 62. Restore: Execute (OWNER ONLY)
+  ipcMain.handle(
+    IPC_CHANNELS.RESTORE_EXECUTE,
+    async (event: IpcMainInvokeEvent, payload: ExecuteRestorePayload): Promise<IpcResponse<RestoreResultDto>> => {
+      try {
+        sessionService.requireRole(event.sender.id, 'OWNER');
+
+        // Validate payload shape
+        if (!payload || typeof payload.token !== 'string' || payload.confirmed !== true) {
+          return { success: false, error: toIpcError('RESTORE_CONFIRMATION_REQUIRED', 'Explicit confirmation required.') };
+        }
+
+        // Reject any path-like tokens
+        if (payload.token.includes('/') || payload.token.includes('\\') || payload.token.includes('..')) {
+          return { success: false, error: toIpcError('RESTORE_INVALID_TOKEN', 'Invalid token format.') };
+        }
+
+        // Consume the one-time token (validates expiry, sender, reuse)
+        const candidatePath = consumeCandidateToken(payload.token, event.sender.id);
+
+        const activeDb = getActiveDatabasePath();
+        if (!activeDb) {
+          return { success: false, error: toIpcError('RESTORE_NO_ACTIVE_DB', 'No active database connection.') };
+        }
+        const db = getDatabaseConnection();
+        const expectedVersion = getCurrentMigrationVersion(db);
+
+        // Re-validate candidate at execution time
+        validateRestoreCandidate(candidatePath, activeDb, expectedVersion);
+
+        // Execute restore without injected fsOps (production path)
+        const result = await executeSafeRestore(candidatePath, activeDb, expectedVersion);
+
+        // Re-insert safety backup metadata into restored DB's backup_history if absent
+        if (result.safetyBackup) {
+          try {
+            const restoredDb = getDatabaseConnection();
+            const existing = restoredDb.prepare(
+              'SELECT id FROM backup_history WHERE checksum_sha256 = ?'
+            ).get(result.safetyBackup.checksumSha256);
+            if (!existing) {
+              restoredDb.prepare(
+                'INSERT INTO backup_history (file_path, checksum_sha256, size_bytes, trigger_type, created_at) VALUES (?, ?, ?, ?, ?)'
+              ).run(
+                result.safetyBackup.filePath,
+                result.safetyBackup.checksumSha256,
+                result.safetyBackup.sizeBytes,
+                result.safetyBackup.triggerType,
+                result.safetyBackup.createdAt
+              );
+            }
+          } catch {
+            // Best effort - don't fail restore if history insert fails
+          }
+        }
+
+        // Schedule app restart after successful restore
+        let restartScheduled = false;
+        try {
+          setTimeout(() => {
+            app.relaunch();
+            app.exit(0);
+          }, 1500);
+          restartScheduled = true;
+        } catch {
+          // Non-fatal if restart scheduling fails
+        }
+
+        return {
+          success: true,
+          data: {
+            success: true,
+            safetyBackupName: result.safetyBackup ? path.basename(result.safetyBackup.filePath) : null,
+            restartScheduled,
+          },
+        };
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Restore failed';
+        const tokenCodes = ['RESTORE_INVALID_TOKEN', 'RESTORE_TOKEN_NOT_FOUND', 'RESTORE_TOKEN_ALREADY_USED',
+          'RESTORE_TOKEN_EXPIRED', 'RESTORE_TOKEN_SENDER_MISMATCH'];
+        const restoreCodes = ['RESTORE_FILE_NOT_FOUND', 'RESTORE_INVALID_EXTENSION', 'RESTORE_ACTIVE_DATABASE_SELECTED',
+          'RESTORE_INVALID_DATABASE', 'RESTORE_INTEGRITY_FAILED', 'RESTORE_FOREIGN_KEY_FAILED',
+          'RESTORE_SCHEMA_MISSING', 'RESTORE_SCHEMA_INCOMPATIBLE'];
+        const allKnown = [...tokenCodes, ...restoreCodes, 'RESTORE_CONFIRMATION_REQUIRED', 'RESTORE_NO_ACTIVE_DB'];
+        const code = allKnown.includes(message) ? message : 'RESTORE_ERROR';
+        // Redact paths and stack traces from error messages
+        const safeMessage = allKnown.includes(message) ? message : 'Database restore failed. Please try again.';
+        return { success: false, error: toIpcError(code, safeMessage) };
       }
     }
   );

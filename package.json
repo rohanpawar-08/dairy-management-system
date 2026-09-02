@@ -15,6 +15,7 @@
     "build": "npm run build:renderer && npm run build:electron",
     "rebuild": "node scripts/rebuild-native.js",
     "test": "node scripts/run-all-tests.js",
+    "test:backend": "vitest run",
     "test:watch": "vitest",
     "test:db": "vitest run tests/integration/db.spec.ts",
     "test:backup-basic": "vitest run tests/integration/backup.spec.ts",
