@@ -59,6 +59,10 @@ import {
   RestoreCandidateDto,
   ExecuteRestorePayload,
   RestoreResultDto,
+  DetectedUsbDriveDto,
+  CreateUsbBackupPayload,
+  BackupScheduleDto,
+  UpdateBackupSchedulePayload,
 } from '../../../../shared/ipc-contracts';
 
 const NO_BRIDGE_ERROR: IpcErrorDetails = {
@@ -737,6 +741,26 @@ export class ElectronBridgeService {
     selectDestination: async (): Promise<IpcResponse<BackupDestinationDto>> => {
       if (!this.api?.backup) return { success: false, error: NO_BRIDGE_ERROR };
       return this.api.backup.selectDestination();
+    },
+
+    getUsbDrives: async (): Promise<IpcResponse<DetectedUsbDriveDto[]>> => {
+      if (!this.api?.backup) return { success: false, error: NO_BRIDGE_ERROR };
+      return this.api.backup.getUsbDrives();
+    },
+
+    createUsbBackup: async (payload: CreateUsbBackupPayload): Promise<IpcResponse<BackupResultDto>> => {
+      if (!this.api?.backup) return { success: false, error: NO_BRIDGE_ERROR };
+      return this.api.backup.createUsbBackup(payload);
+    },
+
+    getSchedule: async (): Promise<IpcResponse<BackupScheduleDto>> => {
+      if (!this.api?.backup) return { success: false, error: NO_BRIDGE_ERROR };
+      return this.api.backup.getSchedule();
+    },
+
+    updateSchedule: async (payload: UpdateBackupSchedulePayload): Promise<IpcResponse<BackupScheduleDto>> => {
+      if (!this.api?.backup) return { success: false, error: NO_BRIDGE_ERROR };
+      return this.api.backup.updateSchedule(payload);
     },
   };
 

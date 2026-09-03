@@ -455,6 +455,10 @@ export const IPC_CHANNELS = {
   BACKUP_CREATE: 'dairy:backup:create',
   BACKUP_GET_HISTORY: 'dairy:backup:get-history',
   BACKUP_SELECT_DESTINATION: 'dairy:backup:select-destination',
+  BACKUP_GET_USB_DRIVES: 'dairy:backup:get-usb-drives',
+  BACKUP_CREATE_USB: 'dairy:backup:create-usb',
+  BACKUP_GET_SCHEDULE: 'dairy:backup:get-schedule',
+  BACKUP_UPDATE_SCHEDULE: 'dairy:backup:update-schedule',
   RESTORE_SELECT_CANDIDATE: 'dairy:restore:select-candidate',
   RESTORE_EXECUTE: 'dairy:restore:execute',
 } as const;
@@ -735,6 +739,10 @@ export interface DairyApiBridge {
     create: () => Promise<IpcResponse<BackupResultDto>>;
     getHistory: (limit?: number) => Promise<IpcResponse<BackupHistoryItemDto[]>>;
     selectDestination: () => Promise<IpcResponse<BackupDestinationDto>>;
+    getUsbDrives: () => Promise<IpcResponse<DetectedUsbDriveDto[]>>;
+    createUsbBackup: (payload: CreateUsbBackupPayload) => Promise<IpcResponse<BackupResultDto>>;
+    getSchedule: () => Promise<IpcResponse<BackupScheduleDto>>;
+    updateSchedule: (payload: UpdateBackupSchedulePayload) => Promise<IpcResponse<BackupScheduleDto>>;
   };
   restore: {
     selectCandidate: () => Promise<IpcResponse<RestoreCandidateDto>>;
@@ -1215,4 +1223,26 @@ export interface RestoreResultDto {
   success: boolean;
   safetyBackupName: string | null;
   restartScheduled: boolean;
+}
+
+export interface DetectedUsbDriveDto {
+  id: string; // opaque sender-bound token
+  label: string;
+  freeSpaceBytes: number;
+  totalSpaceBytes: number;
+}
+
+export interface CreateUsbBackupPayload {
+  usbToken: string;
+}
+
+export interface BackupScheduleDto {
+  enabled: boolean;
+  time: string; // HH:MM
+  lastRunDate: string | null; // YYYY-MM-DD
+}
+
+export interface UpdateBackupSchedulePayload {
+  enabled: boolean;
+  time: string; // HH:MM
 }

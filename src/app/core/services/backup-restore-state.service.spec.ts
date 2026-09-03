@@ -39,6 +39,43 @@ describe('BackupRestoreStateService', () => {
           success: true,
           data: { cancelled: false, displayPath: 'Backups' },
         }),
+        getUsbDrives: vi.fn().mockResolvedValue({
+          success: true,
+          data: [
+            {
+              id: 'usb_token_123',
+              label: 'KINGSTON',
+              freeSpaceBytes: 16000000,
+              totalSpaceBytes: 32000000,
+            },
+          ],
+        }),
+        createUsbBackup: vi.fn().mockResolvedValue({
+          success: true,
+          data: {
+            displayName: 'dairy_backup_usb.db',
+            sizeBytes: 1048576,
+            checksumSha256: 'hashusb',
+            migrationVersion: 6,
+            createdAt: '2026-09-02T12:00:00Z',
+          },
+        }),
+        getSchedule: vi.fn().mockResolvedValue({
+          success: true,
+          data: {
+            enabled: true,
+            time: '21:00',
+            lastRunDate: '2026-09-01',
+          },
+        }),
+        updateSchedule: vi.fn().mockResolvedValue({
+          success: true,
+          data: {
+            enabled: true,
+            time: '22:00',
+            lastRunDate: '2026-09-01',
+          },
+        }),
       },
       restore: {
         selectCandidate: vi.fn().mockResolvedValue({
@@ -85,6 +122,10 @@ describe('BackupRestoreStateService', () => {
     expect(service.isRestoring()).toBe(false);
     expect(service.selectedCandidate()).toBeNull();
     expect(service.errorMessage()).toBeNull();
+    expect(service.successMessage()).toBeNull();
+    expect(service.noticeMessage()).toBeNull();
+    expect(service.usbDrives()).toEqual([]);
+    expect(service.schedule()).toBeNull();
   });
 
   it('2. loadHistory: populates history signal on success', async () => {
@@ -110,6 +151,7 @@ describe('BackupRestoreStateService', () => {
     expect(result?.displayName).toBe('backup_20260902.db');
     expect(service.successMessage()).toContain('backup_20260902.db');
     expect(mockBridge.backup.getHistory).toHaveBeenCalled();
+    expect(service.isCreatingBackup()).toBe(false);
   });
 
   it('5. createBackup: sets error message on failure', async () => {
@@ -194,5 +236,34 @@ describe('BackupRestoreStateService', () => {
     mockI18n.t.mockImplementation((k: string) => (k === 'backupRestore.errors.RESTORE_ERROR' ? 'पुनर्संचयन अयशस्वी' : k));
     expect(service.resolveErrorMessage('RESTORE_ERROR')).toBe('पुनर्संचयन अयशस्वी');
     expect(service.resolveErrorMessage('UNKNOWN_CODE', 'Fallback message')).toBe('Fallback message');
+  });
+
+  it('15. scanUsbDrives: scans removable drives and sets signal', async () => {
+    const drives = await service.scanUsbDrives();
+    expect(mockBridge.backup.getUsbDrives).toHaveBeenCalled();
+    expect(drives.length).toBe(1);
+    expect(drives[0].label).toBe('KINGSTON');
+    expect(service.usbDrives().length).toBe(1);
+  });
+
+  it('16. createUsbBackup: calls bridge and reloads history', async () => {
+    const res = await service.createUsbBackup('usb_token_123');
+    expect(mockBridge.backup.createUsbBackup).toHaveBeenCalledWith({ usbToken: 'usb_token_123' });
+    expect(res?.displayName).toBe('dairy_backup_usb.db');
+    expect(service.successMessage()).toContain('dairy_backup_usb.db');
+    expect(mockBridge.backup.getHistory).toHaveBeenCalled();
+  });
+
+  it('17. loadSchedule: loads schedule from bridge', async () => {
+    await service.loadSchedule();
+    expect(mockBridge.backup.getSchedule).toHaveBeenCalled();
+    expect(service.schedule()?.time).toBe('21:00');
+  });
+
+  it('18. updateSchedule: calls bridge to update schedule', async () => {
+    const res = await service.updateSchedule(true, '22:00');
+    expect(mockBridge.backup.updateSchedule).toHaveBeenCalledWith({ enabled: true, time: '22:00' });
+    expect(res?.time).toBe('22:00');
+    expect(service.schedule()?.time).toBe('22:00');
   });
 });

@@ -114,6 +114,10 @@ const CHANNELS = {
   BACKUP_CREATE: 'dairy:backup:create',
   BACKUP_GET_HISTORY: 'dairy:backup:get-history',
   BACKUP_SELECT_DESTINATION: 'dairy:backup:select-destination',
+  BACKUP_GET_USB_DRIVES: 'dairy:backup:get-usb-drives',
+  BACKUP_CREATE_USB: 'dairy:backup:create-usb',
+  BACKUP_GET_SCHEDULE: 'dairy:backup:get-schedule',
+  BACKUP_UPDATE_SCHEDULE: 'dairy:backup:update-schedule',
   RESTORE_SELECT_CANDIDATE: 'dairy:restore:select-candidate',
   RESTORE_EXECUTE: 'dairy:restore:execute',
 } as const;
@@ -355,6 +359,10 @@ const dairyApi: DairyApiBridge = {
     create: () => ipcRenderer.invoke(CHANNELS.BACKUP_CREATE),
     getHistory: (limit?: number) => ipcRenderer.invoke(CHANNELS.BACKUP_GET_HISTORY, limit),
     selectDestination: () => ipcRenderer.invoke(CHANNELS.BACKUP_SELECT_DESTINATION),
+    getUsbDrives: () => ipcRenderer.invoke(CHANNELS.BACKUP_GET_USB_DRIVES),
+    createUsbBackup: (payload: any) => ipcRenderer.invoke(CHANNELS.BACKUP_CREATE_USB, payload),
+    getSchedule: () => ipcRenderer.invoke(CHANNELS.BACKUP_GET_SCHEDULE),
+    updateSchedule: (payload: any) => ipcRenderer.invoke(CHANNELS.BACKUP_UPDATE_SCHEDULE, payload),
   },
   restore: {
     selectCandidate: () => ipcRenderer.invoke(CHANNELS.RESTORE_SELECT_CANDIDATE),

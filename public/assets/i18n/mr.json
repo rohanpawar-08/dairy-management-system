@@ -461,6 +461,23 @@
     "restoreInProgress": "डेटाबेस पुनर्संचयित होत आहे... कृपया ॲप्लिकेशन बंद करू नका.",
     "restartNotice": "डेटाबेस यशस्वीरित्या पूर्ववत केला आहे! काही क्षणात ॲप्लिकेशन पुन्हा सुरू होईल.",
     "cancelNotice": "फाईल निवड रद्द केली आहे.",
+    "usbSection": "USB ड्राईव्ह बॅकअप",
+    "usbDescription": "बाह्य USB ड्राईव्ह ओळखून थेट त्यावर सुरक्षित बॅकअप तयार करा. ड्राईव्ह पाथ गोपनीय ठेवला जातो.",
+    "scanUsbBtn": "USB ड्राईव्ह शोधा",
+    "scanningUsb": "USB ड्राईव्ह शोधत आहे...",
+    "backupUsbBtn": "USB वर बॅकअप घ्या",
+    "noUsbDrivesDetected": "कोणतीही काढता येण्याजोगी USB ड्राईव्ह सापडली नाही.",
+    "usbDrivesFound": "सापडलेल्या USB ड्राईव्हज्",
+    "scheduleSection": "स्वयंचलित दैनिक बॅकअप वेळापत्रक",
+    "scheduleDescription": "ॲप्लिकेशन चालू असताना ठरवलेल्या स्थानिक वेळेनुसार दररोज आपोआप बॅकअप घेतला जाईल.",
+    "scheduleEnabled": "दैनिक स्वयंचलित बॅकअप सुरू करा",
+    "scheduleTime": "बॅकअपची वेळ (HH:MM)",
+    "saveScheduleBtn": "वेळापत्रक जतन करा",
+    "lastScheduledRun": "शेवटची बॅकअप तारीख",
+    "neverRun": "अद्याप नाही",
+    "scheduleUpdatedSuccess": "बॅकअप वेळापत्रक यशस्वीरित्या अद्यतनित केले.",
+    "retentionPolicyTitle": "बॅकअप साठवणूक धोरण (Retention Policy)",
+    "retentionPolicyNotice": "ॲप-स्टोरेजमध्ये नवीनतम ३० नियमित बॅकअप सुरक्षित ठेवले जातात. पुनर्संचयनपूर्व सुरक्षा बॅकअप, मायग्रेशन बॅकअप आणि बाह्य/USB बॅकअप कधीही स्वयंचलितपणे हटवले जात नाहीत.",
     "confirmDialog": {
       "title": "डेटाबेस पुनर्संचयनाची पुष्टी करा",
       "warning": "सावधान: हा बदल कायमस्वरूपी आहे",
@@ -492,7 +509,18 @@
       "BACKUP_ERROR": "बॅकअप तयार करणे अयशस्वी झाले.",
       "BACKUP_HISTORY_ERROR": "बॅकअप इतिहास लोड करणे अयशस्वी झाले.",
       "BACKUP_DIALOG_ERROR": "फोल्डर निवड डायलॉग उघडता आला नाही.",
-      "RESTORE_SELECT_ERROR": "बॅकअप फाईल तपासणी अयशस्वी झाली."
+      "RESTORE_SELECT_ERROR": "बॅकअप फाईल तपासणी अयशस्वी झाली.",
+      "USB_SCAN_ERROR": "USB ड्राईव्ह शोधणे अयशस्वी झाले.",
+      "USB_INVALID_PAYLOAD": "अवैध USB पेलोड स्वरूप.",
+      "USB_NOT_REMOVABLE": "निवडलेली ड्राईव्ह वैध काढता येण्याजोगी USB ड्राईव्ह नाही.",
+      "USB_BACKUP_ERROR": "USB बॅकअप तयार करणे अयशस्वी झाले.",
+      "USB_INVALID_TOKEN": "अवैध USB टोकन.",
+      "USB_TOKEN_NOT_FOUND": "USB टोकन सापडले नाही.",
+      "USB_TOKEN_EXPIRED": "USB टोकन कालबाह्य झाले आहे.",
+      "USB_TOKEN_SENDER_MISMATCH": "सुरक्षा त्रुटी: USB सत्र जुळत नाही.",
+      "BACKUP_SCHEDULE_ERROR": "बॅकअप वेळापत्रक सेट करणे अयशस्वी झाले.",
+      "BACKUP_SCHEDULE_INVALID_PAYLOAD": "अवैध वेळापत्रक पेलोड.",
+      "BACKUP_SCHEDULE_INVALID_TIME": "अवैध वेळ स्वरूप (HH:MM आवश्यक)."
     }
   }
 }

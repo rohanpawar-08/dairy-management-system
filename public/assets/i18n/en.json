@@ -461,6 +461,23 @@
     "restoreInProgress": "Restoring database safely... Please do not close the application.",
     "restartNotice": "Database restored successfully! Application will restart in a few moments.",
     "cancelNotice": "File selection was cancelled.",
+    "usbSection": "Removable USB Backup",
+    "usbDescription": "Safely detect external USB removable drives and create verified backups without exposing drive paths.",
+    "scanUsbBtn": "Scan USB Drives",
+    "scanningUsb": "Scanning drives...",
+    "backupUsbBtn": "Backup to USB",
+    "noUsbDrivesDetected": "No removable USB drives detected.",
+    "usbDrivesFound": "USB drives detected",
+    "scheduleSection": "Automated Daily Backup Schedule",
+    "scheduleDescription": "Automatically create a daily backup at the configured local time when the application is running.",
+    "scheduleEnabled": "Enable Scheduled Daily Backup",
+    "scheduleTime": "Scheduled Time (HH:MM)",
+    "saveScheduleBtn": "Save Schedule",
+    "lastScheduledRun": "Last Run Date",
+    "neverRun": "Never",
+    "scheduleUpdatedSuccess": "Backup schedule updated successfully.",
+    "retentionPolicyTitle": "Retention Policy",
+    "retentionPolicyNotice": "App maintains the newest 30 routine verified backups in app storage. Pre-restore safety, pre-migration, and external/USB backups are never auto-deleted.",
     "confirmDialog": {
       "title": "Confirm Database Restore",
       "warning": "WARNING: Destructive Operation",
@@ -492,7 +509,18 @@
       "BACKUP_ERROR": "Backup creation failed.",
       "BACKUP_HISTORY_ERROR": "Failed to load backup history.",
       "BACKUP_DIALOG_ERROR": "Failed to open folder selection dialog.",
-      "RESTORE_SELECT_ERROR": "Candidate validation failed."
+      "RESTORE_SELECT_ERROR": "Candidate validation failed.",
+      "USB_SCAN_ERROR": "Failed to scan removable drives.",
+      "USB_INVALID_PAYLOAD": "Invalid USB payload format.",
+      "USB_NOT_REMOVABLE": "Target drive is not a valid removable drive.",
+      "USB_BACKUP_ERROR": "USB backup creation failed.",
+      "USB_INVALID_TOKEN": "Invalid USB token format.",
+      "USB_TOKEN_NOT_FOUND": "USB token not found.",
+      "USB_TOKEN_EXPIRED": "USB token has expired.",
+      "USB_TOKEN_SENDER_MISMATCH": "Security error: USB session sender mismatch.",
+      "BACKUP_SCHEDULE_ERROR": "Failed to configure backup schedule.",
+      "BACKUP_SCHEDULE_INVALID_PAYLOAD": "Invalid schedule payload.",
+      "BACKUP_SCHEDULE_INVALID_TIME": "Invalid time format (HH:MM expected)."
     }
   }
 }

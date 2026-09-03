@@ -77,13 +77,20 @@
   border-left: 4px solid #f57f17;
 }
 
+.alert-retention {
+  background-color: #f1f3f4;
+  color: #37474f;
+  border-left: 4px solid #78909c;
+  line-height: 1.4;
+}
+
 .actions-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 1.5rem;
   margin-bottom: 2rem;
 
-  @media (max-width: 768px) {
+  @media (max-width: 900px) {
     grid-template-columns: 1fr;
   }
 }
@@ -117,6 +124,16 @@
       &.restore-icon {
         background-color: #ede7f6;
         color: #673ab7;
+      }
+
+      &.usb-icon {
+        background-color: #e0f2f1;
+        color: #00796b;
+      }
+
+      &.schedule-icon {
+        background-color: #fff3e0;
+        color: #e65100;
       }
     }
 
@@ -196,6 +213,94 @@
     display: flex;
     gap: 0.75rem;
     justify-content: flex-end;
+  }
+}
+
+.usb-drives-list {
+  margin-top: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+
+  .usb-list-title {
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #004d40;
+  }
+
+  .usb-drive-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    background-color: #f1f8f6;
+    border: 1px solid #b2dfdb;
+    border-radius: 6px;
+
+    .drive-info {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+
+      mat-icon {
+        color: #00796b;
+      }
+
+      .drive-text {
+        display: flex;
+        flex-direction: column;
+
+        strong {
+          font-size: 0.95rem;
+          color: #212121;
+        }
+
+        .drive-space {
+          font-size: 0.85rem;
+          color: #546e7a;
+        }
+      }
+    }
+  }
+}
+
+.schedule-form {
+  margin-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+
+  .schedule-toggle-row {
+    display: flex;
+    align-items: center;
+  }
+
+  .schedule-time-row {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+
+    .time-field {
+      width: 140px;
+    }
+  }
+
+  .schedule-status-row {
+    display: flex;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+
+    .status-label {
+      color: #616161;
+      font-weight: 500;
+    }
+
+    .status-value {
+      color: #1a237e;
+      font-weight: 600;
+    }
   }
 }
 

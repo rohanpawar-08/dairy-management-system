@@ -18,6 +18,10 @@ export const RESTORE_SCHEMA_INCOMPATIBLE = 'RESTORE_SCHEMA_INCOMPATIBLE';
 // Process-level mutex
 let isRestoreOrBackupRunning = false;
 
+export function isRestoreOrBackupActive(): boolean {
+  return isRestoreOrBackupRunning;
+}
+
 export type BackupTriggerType =
   | 'MANUAL'
   | 'AUTOMATIC_SHIFT_CLOSE'
@@ -57,6 +61,108 @@ export async function computeFileSha256(filePath: string): Promise<string> {
 }
 
 /**
+ * Resolve canonical path to app-managed backups folder (userData/backups, never cwd).
+ */
+export function getAppManagedBackupDir(): string {
+  if (process.env['TEST_APP_BACKUP_DIR']) {
+    return path.resolve(process.env['TEST_APP_BACKUP_DIR']);
+  }
+  try {
+    const { app } = require('electron');
+    if (app && typeof app.getPath === 'function') {
+      return path.resolve(path.join(app.getPath('userData'), 'backups'));
+    }
+  } catch {
+    // Non-electron environment fallback (e.g. testing)
+  }
+  const base = process.env['APPDATA'] || (process.platform === 'win32' ? 'C:\\ProgramData' : '/var/lib');
+  return path.resolve(path.join(base, 'dairy-management-system', 'backups'));
+}
+
+/**
+ * Prune old routine backups in the app-managed directory according to the retention policy.
+ * - Keeps newest 30 routine verified backups.
+ * - Never auto-deletes PRE_RESTORE_SAFETY, PRE_MIGRATION, or external/USB backups.
+ * - Deletes only canonical files inside the app-managed backup root matching dairy_backup_*.db.
+ * - Non-fatal: pruning errors produce warnings and never delete/invalidate newly created backup.
+ * - History row deleted only after successful file deletion.
+ */
+export function pruneOldBackups(
+  db: Database.Database,
+  appManagedDir: string = getAppManagedBackupDir()
+): { prunedCount: number; warnings: string[] } {
+  const warnings: string[] = [];
+  let prunedCount = 0;
+
+  try {
+    const canonicalAppDir = path.resolve(appManagedDir);
+
+    // Fetch routine backups ordered newest first
+    const rows = db.prepare(`
+      SELECT id, file_path, trigger_type, created_at
+      FROM backup_history
+      WHERE trigger_type NOT IN ('PRE_RESTORE_SAFETY', 'PRE_MIGRATION')
+      ORDER BY created_at DESC, id DESC
+    `).all() as { id: number; file_path: string; trigger_type: string; created_at: string }[];
+
+    // Filter to backups located strictly inside app-managed directory
+    const appManagedRows = rows.filter(row => {
+      try {
+        const canonical = path.resolve(row.file_path);
+        return canonical.startsWith(canonicalAppDir + path.sep);
+      } catch {
+        return false;
+      }
+    });
+
+    const MAX_ROUTINE_BACKUPS = 30;
+    if (appManagedRows.length <= MAX_ROUTINE_BACKUPS) {
+      return { prunedCount: 0, warnings: [] };
+    }
+
+    const candidates = appManagedRows.slice(MAX_ROUTINE_BACKUPS);
+
+    for (const candidate of candidates) {
+      const canonical = path.resolve(candidate.file_path);
+
+      // Security check: Must reside within canonical app backup directory
+      if (!canonical.startsWith(canonicalAppDir + path.sep)) {
+        warnings.push(`Skipping non-app-managed backup: ${candidate.file_path}`);
+        continue;
+      }
+
+      // Security check: Must match standard filename pattern
+      const baseName = path.basename(canonical);
+      if (!/^dairy_backup_.*\.db$/.test(baseName)) {
+        warnings.push(`Skipping non-standard backup filename: ${baseName}`);
+        continue;
+      }
+
+      // Security check: Exempt triggers must never be deleted
+      if (candidate.trigger_type === 'PRE_RESTORE_SAFETY' || candidate.trigger_type === 'PRE_MIGRATION') {
+        warnings.push(`Skipping exempt trigger: ${candidate.trigger_type}`);
+        continue;
+      }
+
+      try {
+        if (fs.existsSync(canonical)) {
+          fs.unlinkSync(canonical);
+        }
+        // Only delete from history once file is confirmed unlinked
+        db.prepare('DELETE FROM backup_history WHERE id = ?').run(candidate.id);
+        prunedCount++;
+      } catch (unlinkErr: any) {
+        warnings.push(`Failed to delete ${baseName}: ${unlinkErr?.message || String(unlinkErr)}`);
+      }
+    }
+  } catch (err: any) {
+    warnings.push(`Retention pruning error: ${err?.message || String(err)}`);
+  }
+
+  return { prunedCount, warnings };
+}
+
+/**
  * Perform a live, non-blocking asynchronous backup of the SQLite database with rigorous integrity checks.
  * Internal helper that doesn't acquire the mutex.
  */
@@ -65,7 +171,7 @@ async function doCreateVerifiedBackup(
   options: BackupOptions = {}
 ): Promise<BackupResult> {
   const triggerType: BackupTriggerType = options.triggerType ?? 'MANUAL';
-  const destDir = options.destinationDir ?? path.join(process.cwd(), 'backups');
+  const destDir = options.destinationDir ? path.resolve(options.destinationDir) : getAppManagedBackupDir();
 
     if (!fs.existsSync(destDir)) {
       fs.mkdirSync(destDir, { recursive: true });
@@ -168,6 +274,15 @@ async function doCreateVerifiedBackup(
          VALUES (?, ?, ?, ?, 'VERIFIED', ?)`
       );
       insertHistoryStmt.run(finalFilePath, checksum, sizeBytes, triggerType, createdAt);
+
+      // 6. Prune old routine backups if created inside app-managed directory
+      if (destDir === getAppManagedBackupDir()) {
+        try {
+          pruneOldBackups(sourceDb, destDir);
+        } catch (pruneErr) {
+          console.warn('[Backup Retention] Non-fatal retention warning:', pruneErr);
+        }
+      }
 
       return {
         filePath: finalFilePath,

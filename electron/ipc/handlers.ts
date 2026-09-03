@@ -56,11 +56,18 @@ import {
   RestoreCandidateDto,
   ExecuteRestorePayload,
   RestoreResultDto,
+  DetectedUsbDriveDto,
+  CreateUsbBackupPayload,
+  BackupScheduleDto,
+  UpdateBackupSchedulePayload,
 } from '../../shared/ipc-contracts';
 import { applyAndVerifyPragmas, getDatabaseConnection, getActiveDatabasePath } from '../db/connection';
 import { runMigrations, getCurrentMigrationVersion } from '../db/migrator';
 import { createVerifiedBackup, validateRestoreCandidate, executeSafeRestore } from '../services/backup.service';
 import { createCandidateToken, consumeCandidateToken } from '../core/restore-token.store';
+import { detectRemovableDrives, revalidateDriveType2 } from '../services/usb-detection.service';
+import { resolveUsbToken } from '../core/usb-token.store';
+import { getBackupSchedule, updateBackupSchedule } from '../services/backup-scheduler.service';
 import { setupService } from '../services/setup.service';
 import { authService } from '../services/auth.service';
 import { sessionService } from '../core/session.service';
@@ -2511,6 +2518,12 @@ export function registerIpcHandlers(): void {
       try {
         const db = getDatabaseConnection();
         const shift = shiftService.closeShift(db, shiftId, event.sender.id);
+
+        // Async automatic shift-close backup (fire-and-forget; failure never affects shift closure)
+        createVerifiedBackup(db, { triggerType: 'AUTOMATIC_SHIFT_CLOSE' }).catch((err) => {
+          console.error('[Backup Automation] Automatic shift-close backup failed:', err);
+        });
+
         return {
           success: true,
           data: shift,
@@ -3111,6 +3124,116 @@ export function registerIpcHandlers(): void {
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : 'Dialog failed';
         return { success: false, error: toIpcError('BACKUP_DIALOG_ERROR', message) };
+      }
+    }
+  );
+
+  // 60a. Backup: Get Removable USB Drives (OWNER ONLY)
+  ipcMain.handle(
+    IPC_CHANNELS.BACKUP_GET_USB_DRIVES,
+    async (event: IpcMainInvokeEvent): Promise<IpcResponse<DetectedUsbDriveDto[]>> => {
+      try {
+        sessionService.requireRole(event.sender.id, 'OWNER');
+        const drives = await detectRemovableDrives(event.sender.id);
+        return { success: true, data: drives };
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Failed to scan USB drives';
+        return { success: false, error: toIpcError('USB_SCAN_ERROR', message) };
+      }
+    }
+  );
+
+  // 60b. Backup: Create Backup to Removable USB Drive (OWNER ONLY)
+  ipcMain.handle(
+    IPC_CHANNELS.BACKUP_CREATE_USB,
+    async (
+      event: IpcMainInvokeEvent,
+      payload: CreateUsbBackupPayload
+    ): Promise<IpcResponse<BackupResultDto>> => {
+      try {
+        sessionService.requireRole(event.sender.id, 'OWNER');
+
+        if (!payload || typeof payload.usbToken !== 'string') {
+          return { success: false, error: toIpcError('USB_INVALID_PAYLOAD', 'USB token required.') };
+        }
+
+        const resolved = resolveUsbToken(payload.usbToken, event.sender.id);
+
+        // Revalidate DriveType=2 at backup time
+        const isRemovable = await revalidateDriveType2(resolved.deviceId);
+        if (!isRemovable) {
+          return {
+            success: false,
+            error: toIpcError('USB_NOT_REMOVABLE', 'Target drive is not a valid removable drive.'),
+          };
+        }
+
+        const destDir = path.join(resolved.driveRoot, 'dairy_backups');
+        const db = getDatabaseConnection();
+        const result = await createVerifiedBackup(db, {
+          destinationDir: destDir,
+          triggerType: 'MANUAL',
+        });
+
+        return {
+          success: true,
+          data: {
+            displayName: path.basename(result.filePath),
+            sizeBytes: result.sizeBytes,
+            checksumSha256: result.checksumSha256,
+            migrationVersion: result.migrationVersion,
+            createdAt: result.createdAt,
+          },
+        };
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'USB Backup failed';
+        const code =
+          message === 'USB_INVALID_TOKEN' ||
+          message === 'USB_TOKEN_NOT_FOUND' ||
+          message === 'USB_TOKEN_EXPIRED' ||
+          message === 'USB_TOKEN_SENDER_MISMATCH'
+            ? message
+            : 'USB_BACKUP_ERROR';
+        return { success: false, error: toIpcError(code, message) };
+      }
+    }
+  );
+
+  // 60c. Backup: Get Backup Schedule (OWNER ONLY)
+  ipcMain.handle(
+    IPC_CHANNELS.BACKUP_GET_SCHEDULE,
+    async (event: IpcMainInvokeEvent): Promise<IpcResponse<BackupScheduleDto>> => {
+      try {
+        sessionService.requireRole(event.sender.id, 'OWNER');
+        const db = getDatabaseConnection();
+        const schedule = getBackupSchedule(db);
+        return { success: true, data: schedule };
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Failed to retrieve schedule';
+        return { success: false, error: toIpcError('BACKUP_SCHEDULE_ERROR', message) };
+      }
+    }
+  );
+
+  // 60d. Backup: Update Backup Schedule (OWNER ONLY)
+  ipcMain.handle(
+    IPC_CHANNELS.BACKUP_UPDATE_SCHEDULE,
+    async (
+      event: IpcMainInvokeEvent,
+      payload: UpdateBackupSchedulePayload
+    ): Promise<IpcResponse<BackupScheduleDto>> => {
+      try {
+        sessionService.requireRole(event.sender.id, 'OWNER');
+        const db = getDatabaseConnection();
+        const updated = updateBackupSchedule(db, payload);
+        return { success: true, data: updated };
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Failed to update schedule';
+        const code =
+          message === 'BACKUP_SCHEDULE_INVALID_PAYLOAD' || message === 'BACKUP_SCHEDULE_INVALID_TIME'
+            ? message
+            : 'BACKUP_SCHEDULE_ERROR';
+        return { success: false, error: toIpcError(code, message) };
       }
     }
   );

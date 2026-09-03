@@ -6,6 +6,8 @@ import {
   BackupHistoryItemDto,
   RestoreCandidateDto,
   RestoreResultDto,
+  DetectedUsbDriveDto,
+  BackupScheduleDto,
 } from '../../../../shared/ipc-contracts';
 
 @Injectable({
@@ -22,6 +24,13 @@ export class BackupRestoreStateService {
   public readonly errorMessage: WritableSignal<string | null> = signal(null);
   public readonly successMessage: WritableSignal<string | null> = signal(null);
   public readonly noticeMessage: WritableSignal<string | null> = signal(null);
+
+  // Stage 10 B4: Automation & USB signals
+  public readonly usbDrives: WritableSignal<DetectedUsbDriveDto[]> = signal([]);
+  public readonly isScanningUsb: WritableSignal<boolean> = signal(false);
+  public readonly schedule: WritableSignal<BackupScheduleDto | null> = signal(null);
+  public readonly isLoadingSchedule: WritableSignal<boolean> = signal(false);
+  public readonly isUpdatingSchedule: WritableSignal<boolean> = signal(false);
 
   constructor(
     private bridge: ElectronBridgeService,
@@ -87,6 +96,87 @@ export class BackupRestoreStateService {
     }
     // Proceed to create verified backup
     return this.createBackup();
+  }
+
+  public async scanUsbDrives(): Promise<DetectedUsbDriveDto[]> {
+    if (!this.bridge.isElectron) return [];
+    this.clearMessages();
+    this.isScanningUsb.set(true);
+    try {
+      const res = await this.bridge.backup.getUsbDrives();
+      if (res.success && res.data) {
+        this.usbDrives.set(res.data);
+        if (res.data.length === 0) {
+          this.noticeMessage.set(this.i18n.t('backupRestore.noUsbDrivesDetected'));
+        }
+        return res.data;
+      } else if (!res.success && res.error) {
+        this.errorMessage.set(this.resolveErrorMessage(res.error.code, res.error.messageMr));
+        return [];
+      }
+      return [];
+    } finally {
+      this.isScanningUsb.set(false);
+    }
+  }
+
+  public async createUsbBackup(usbToken: string): Promise<BackupResultDto | null> {
+    if (!this.bridge.isElectron) return null;
+    this.clearMessages();
+    this.isCreatingBackup.set(true);
+    try {
+      const res = await this.bridge.backup.createUsbBackup({ usbToken });
+      if (res.success && res.data) {
+        this.successMessage.set(
+          this.i18n.isMarathi()
+            ? `USB बॅकअप यशस्वी: ${res.data.displayName}`
+            : `USB Backup created successfully: ${res.data.displayName}`
+        );
+        await this.loadHistory();
+        return res.data;
+      } else if (!res.success && res.error) {
+        this.errorMessage.set(this.resolveErrorMessage(res.error.code, res.error.messageMr));
+        return null;
+      }
+      return null;
+    } finally {
+      this.isCreatingBackup.set(false);
+    }
+  }
+
+  public async loadSchedule(): Promise<void> {
+    if (!this.bridge.isElectron) return;
+    this.isLoadingSchedule.set(true);
+    try {
+      const res = await this.bridge.backup.getSchedule();
+      if (res.success && res.data) {
+        this.schedule.set(res.data);
+      } else if (!res.success && res.error) {
+        this.errorMessage.set(this.resolveErrorMessage(res.error.code, res.error.messageMr));
+      }
+    } finally {
+      this.isLoadingSchedule.set(false);
+    }
+  }
+
+  public async updateSchedule(enabled: boolean, time: string): Promise<BackupScheduleDto | null> {
+    if (!this.bridge.isElectron) return null;
+    this.clearMessages();
+    this.isUpdatingSchedule.set(true);
+    try {
+      const res = await this.bridge.backup.updateSchedule({ enabled, time });
+      if (res.success && res.data) {
+        this.schedule.set(res.data);
+        this.successMessage.set(this.i18n.t('backupRestore.scheduleUpdatedSuccess'));
+        return res.data;
+      } else if (!res.success && res.error) {
+        this.errorMessage.set(this.resolveErrorMessage(res.error.code, res.error.messageMr));
+        return null;
+      }
+      return null;
+    } finally {
+      this.isUpdatingSchedule.set(false);
+    }
   }
 
   public async selectRestoreCandidate(): Promise<RestoreCandidateDto | null> {

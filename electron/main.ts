@@ -2,9 +2,10 @@ import { app, BrowserWindow } from 'electron';
 import * as fs from 'fs';
 import { getAppConfig } from './core/config';
 import { applySecurityPolicies } from './core/security';
-import { closeDatabaseConnection, initDatabaseConnection } from './db/connection';
+import { closeDatabaseConnection, initDatabaseConnection, getDatabaseConnection } from './db/connection';
 import { runMigrations, runMigrationsAsync } from './db/migrator';
 import { registerIpcHandlers } from './ipc/handlers';
+import { startBackupScheduler, stopBackupScheduler } from './services/backup-scheduler.service';
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -213,6 +214,15 @@ app.whenReady().then(async () => {
   // 3. Normal application window launch
   await createWindow();
 
+  // Start background backup scheduler
+  startBackupScheduler(() => {
+    try {
+      return getDatabaseConnection();
+    } catch {
+      return null;
+    }
+  });
+
   app.on('activate', async () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       await createWindow();
@@ -221,7 +231,8 @@ app.whenReady().then(async () => {
 });
 
 app.on('before-quit', () => {
-  console.log('[Main] Application shutting down. Closing database connection...');
+  console.log('[Main] Application shutting down. Stopping scheduler and closing database connection...');
+  stopBackupScheduler();
   closeDatabaseConnection();
 });
 
