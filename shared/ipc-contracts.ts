@@ -48,6 +48,7 @@ export interface SqliteSmokeResult {
   stage7?: Stage7SmokeSummary;
   stage8?: Stage8SmokeSummary;
   stage9?: Stage9SmokeSummary;
+  stage10?: Stage10SmokeSummary;
 }
 
 export interface Stage3SmokeSummary {
@@ -1180,6 +1181,15 @@ export interface Stage9SmokeSummary {
   pdfNonEmptyOk: boolean;
   temporaryPdfRemoved: boolean;
   arbitraryPathNotExposed: boolean;
+}
+
+export interface Stage10SmokeSummary {
+  bridgeMethodsPresent: boolean;
+  smokeBackupCreatedOk: boolean;
+  smokeBackupVerifiedOk: boolean;
+  smokeHistoryBasenameOnly: boolean;
+  temporaryBackupCleaned: boolean;
+  noRendererPathExposed: boolean;
 }
 
 // ============================================================================

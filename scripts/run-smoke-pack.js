@@ -245,7 +245,17 @@ async function runSmokePack() {
               s9.temporaryPdfRemoved === true &&
               s9.arbitraryPathNotExposed === true;
 
-            if (parsed.rendererBootstrapOk === true && s5Ok && s6Ok && s7Ok && s8Ok && s9Ok) {
+            const s10 = parsed?.sqlite?.data?.stage10;
+            const s10Ok =
+              s10 &&
+              s10.bridgeMethodsPresent === true &&
+              s10.smokeBackupCreatedOk === true &&
+              s10.smokeBackupVerifiedOk === true &&
+              s10.smokeHistoryBasenameOnly === true &&
+              s10.temporaryBackupCleaned === true &&
+              s10.noRendererPathExposed === true;
+
+            if (parsed.rendererBootstrapOk === true && s5Ok && s6Ok && s7Ok && s8Ok && s9Ok && s10Ok) {
               validatedOk = true;
             }
           }

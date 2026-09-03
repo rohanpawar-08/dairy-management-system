@@ -165,7 +165,22 @@ app.whenReady().then(async () => {
                 sqliteRes.data?.stage9?.pdfMagicHeaderOk === true &&
                 sqliteRes.data?.stage9?.pdfNonEmptyOk === true &&
                 sqliteRes.data?.stage9?.temporaryPdfRemoved === true &&
-                sqliteRes.data?.stage9?.arbitraryPathNotExposed === true,
+                sqliteRes.data?.stage9?.arbitraryPathNotExposed === true &&
+                typeof window.dairyApi.backup?.create === 'function' &&
+                typeof window.dairyApi.backup?.getHistory === 'function' &&
+                typeof window.dairyApi.backup?.selectDestination === 'function' &&
+                typeof window.dairyApi.backup?.getUsbDrives === 'function' &&
+                typeof window.dairyApi.backup?.createUsbBackup === 'function' &&
+                typeof window.dairyApi.backup?.getSchedule === 'function' &&
+                typeof window.dairyApi.backup?.updateSchedule === 'function' &&
+                typeof window.dairyApi.restore?.selectCandidate === 'function' &&
+                typeof window.dairyApi.restore?.execute === 'function' &&
+                sqliteRes.data?.stage10?.bridgeMethodsPresent === true &&
+                sqliteRes.data?.stage10?.smokeBackupCreatedOk === true &&
+                sqliteRes.data?.stage10?.smokeBackupVerifiedOk === true &&
+                sqliteRes.data?.stage10?.smokeHistoryBasenameOnly === true &&
+                sqliteRes.data?.stage10?.temporaryBackupCleaned === true &&
+                sqliteRes.data?.stage10?.noRendererPathExposed === true,
               rendererBootstrapOk,
               ping: pingRes,
               sqlite: sqliteRes,
