@@ -1,6 +1,14 @@
-import { Component, Inject, inject } from '@angular/core';
+import { Component, Inject, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
+import {
+  FormsModule,
+  ReactiveFormsModule,
+  FormBuilder,
+  FormGroup,
+  Validators,
+  AbstractControl,
+  ValidationErrors,
+} from '@angular/forms';
 import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -9,6 +17,14 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatIconModule } from '@angular/material/icon';
 import { I18nService } from '../../../core/services/i18n.service';
 import { PaymentMethod, RecordPaymentPayload } from '../../../../../shared/ipc-contracts';
+
+export function trimmedRequiredValidator(control: AbstractControl): ValidationErrors | null {
+  const val = control.value;
+  if (!val || typeof val !== 'string' || val.trim().length === 0) {
+    return { required: true };
+  }
+  return null;
+}
 
 export interface PaymentDialogData {
   farmerId: number;
@@ -92,13 +108,19 @@ export interface PaymentDialogData {
 
             <!-- External Reference (Txn ID / Cheque No) -->
             <mat-form-field appearance="outline" class="half-width">
-              <mat-label>{{ i18n.t('settlements.externalRef') }}</mat-label>
+              <mat-label>
+                {{ i18n.t('settlements.externalRef') }}
+                <span *ngIf="isExternalRefRequired()">*</span>
+              </mat-label>
               <input
                 matInput
                 type="text"
                 formControlName="externalReference"
                 placeholder="उदा. UPI Txn ID / धनादेश क्र."
               />
+              <mat-error *ngIf="form.get('externalReference')?.hasError('required')">
+                {{ i18n.t('common.required') }}
+              </mat-error>
             </mat-form-field>
           </div>
 
@@ -179,7 +201,7 @@ export interface PaymentDialogData {
     }
   `],
 })
-export class PaymentDialogComponent {
+export class PaymentDialogComponent implements OnInit {
   public readonly i18n = inject(I18nService);
   private readonly fb = inject(FormBuilder);
 
@@ -195,6 +217,30 @@ export class PaymentDialogComponent {
     public dialogRef: MatDialogRef<PaymentDialogComponent, RecordPaymentPayload | null>,
     @Inject(MAT_DIALOG_DATA) public data: PaymentDialogData
   ) {}
+
+  public isExternalRefRequired(): boolean {
+    const method = this.form.get('paymentMethod')?.value;
+    return method === 'BANK_TRANSFER' || method === 'UPI' || method === 'CHEQUE' || method === 'OTHER';
+  }
+
+  ngOnInit(): void {
+    this.updateExternalRefValidation(this.form.get('paymentMethod')?.value);
+    this.form.get('paymentMethod')?.valueChanges.subscribe((method: PaymentMethod) => {
+      this.updateExternalRefValidation(method);
+    });
+  }
+
+  private updateExternalRefValidation(method: PaymentMethod): void {
+    const extControl = this.form.get('externalReference');
+    if (!extControl) return;
+
+    if (method === 'BANK_TRANSFER' || method === 'UPI' || method === 'CHEQUE' || method === 'OTHER') {
+      extControl.setValidators([trimmedRequiredValidator]);
+    } else {
+      extControl.clearValidators();
+    }
+    extControl.updateValueAndValidity({ emitEvent: false });
+  }
 
   public onConfirm(): void {
     if (this.form.invalid) return;

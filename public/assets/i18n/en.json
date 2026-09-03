@@ -429,7 +429,21 @@
     "pdfExport": "Export PDF",
     "generating": "Generating PDF...",
     "generated": "PDF Generated Successfully",
-    "cancelled": "Export Cancelled"
+    "cancelled": "Export Cancelled",
+    "reportType": "Report Type",
+    "fromDate": "From Date",
+    "toDate": "To Date",
+    "preview": "Preview",
+    "selectFarmer": "Select Farmer",
+    "noFarmers": "No active farmers found",
+    "selectPeriod": "Select Settlement Period",
+    "noPeriods": "No settlement periods found",
+    "shiftId": "Shift ID",
+    "currentShift": "Current Open Shift",
+    "noShift": "No open shift found. Enter Shift ID.",
+    "invalidDateRange": "From Date cannot be after To Date",
+    "validationRequired": "Please complete all required selections.",
+    "loadingEntities": "Loading report entities..."
   },
   "backupRestore": {
     "title": "Backup & Database Restore",

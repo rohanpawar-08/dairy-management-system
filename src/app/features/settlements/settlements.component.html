@@ -2,11 +2,22 @@
   <!-- Top Header Banner -->
   <div class="page-header">
     <div class="title-group">
-      <h1>
-        <mat-icon color="primary">account_balance_wallet</mat-icon>
-        <span>{{ i18n.t('settlements.pageTitle') }}</span>
-      </h1>
-      <p class="subtitle">{{ i18n.t('settlements.pageSubtitle') }}</p>
+      <button
+        mat-icon-button
+        type="button"
+        routerLink="/dashboard"
+        [matTooltip]="i18n.t('common.back')"
+        aria-label="Back to Dashboard"
+      >
+        <mat-icon>arrow_back</mat-icon>
+      </button>
+      <div>
+        <h1>
+          <mat-icon color="primary">account_balance_wallet</mat-icon>
+          <span>{{ i18n.t('settlements.pageTitle') }}</span>
+        </h1>
+        <p class="subtitle">{{ i18n.t('settlements.pageSubtitle') }}</p>
+      </div>
     </div>
 
     <div class="actions-group" *ngIf="auth.isOwner()">

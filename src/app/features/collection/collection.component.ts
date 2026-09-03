@@ -53,11 +53,14 @@ import { VoidCollectionDialogComponent } from './void-collection-dialog/void-col
 import { CloseShiftDialogComponent } from './close-shift-dialog/close-shift-dialog.component';
 import { ReopenShiftDialogComponent } from './reopen-shift-dialog/reopen-shift-dialog.component';
 
+import { RouterLink } from '@angular/router';
+
 @Component({
   selector: 'app-collection',
   standalone: true,
   imports: [
     CommonModule,
+    RouterLink,
     FormsModule,
     ReactiveFormsModule,
     MatDialogModule,

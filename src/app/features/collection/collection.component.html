@@ -1,4 +1,18 @@
 <div class="collection-page-container">
+  <!-- Top Navigation Header -->
+  <div class="top-nav-bar">
+    <button
+      mat-icon-button
+      type="button"
+      routerLink="/dashboard"
+      [matTooltip]="i18n.t('common.back')"
+      aria-label="Back to Dashboard"
+    >
+      <mat-icon>arrow_back</mat-icon>
+    </button>
+    <h2 class="page-nav-title">{{ i18n.t('collection.title') }}</h2>
+  </div>
+
   <!-- Notifications -->
   <div *ngIf="successBanner()" class="alert-banner success-banner">
     <mat-icon>check_circle</mat-icon>

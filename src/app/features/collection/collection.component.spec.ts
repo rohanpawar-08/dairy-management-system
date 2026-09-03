@@ -1,4 +1,5 @@
 import { TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { MatDialog } from '@angular/material/dialog';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
 import { signal } from '@angular/core';
@@ -224,6 +225,7 @@ describe('CollectionComponent (Angular Unit)', () => {
     await TestBed.configureTestingModule({
       imports: [CollectionComponent, NoopAnimationsModule],
       providers: [
+        provideRouter([]),
         { provide: CollectionStateService, useValue: collectionStateMock },
         { provide: AuthStateService, useValue: authStateMock },
         { provide: ElectronBridgeService, useValue: bridgeMock },
@@ -237,11 +239,13 @@ describe('CollectionComponent (Angular Unit)', () => {
       .compileComponents();
   });
 
-  it('1. Renders active shift HUD and recent collections table', () => {
+  it('1. Renders active shift HUD, recent collections table, and dashboard back button', () => {
     const fixture = TestBed.createComponent(CollectionComponent);
     fixture.detectChanges();
 
     const compiled = fixture.nativeElement as HTMLElement;
+    const backBtn = compiled.querySelector('button[routerLink="/dashboard"]');
+    expect(backBtn).toBeTruthy();
     expect(compiled.textContent).toContain('2026-09-01');
     expect(compiled.textContent).toContain('MC-20260901-M-000001');
     expect(compiled.textContent).toContain('गणेश पवार');

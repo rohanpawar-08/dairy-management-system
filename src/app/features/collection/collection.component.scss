@@ -4,6 +4,20 @@
   margin: 0 auto;
 }
 
+.top-nav-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+
+  .page-nav-title {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #1a237e;
+  }
+}
+
 .alert-banner {
   display: flex;
   align-items: center;

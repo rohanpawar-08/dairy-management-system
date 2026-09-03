@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
 import { MatDialog } from '@angular/material/dialog';
 import { SettlementsComponent } from './settlements.component';
@@ -47,6 +48,7 @@ describe('SettlementsComponent', () => {
     await TestBed.configureTestingModule({
       imports: [SettlementsComponent, NoopAnimationsModule],
       providers: [
+        provideRouter([]),
         { provide: SettlementStateService, useValue: mockState },
         { provide: AuthStateService, useValue: mockAuth },
         { provide: MatDialog, useValue: mockDialog },
@@ -58,8 +60,10 @@ describe('SettlementsComponent', () => {
     fixture.detectChanges();
   });
 
-  it('should create', () => {
+  it('should create and render dashboard back button', () => {
     expect(component).toBeTruthy();
+    const backBtn = fixture.nativeElement.querySelector('button[routerLink="/dashboard"]');
+    expect(backBtn).toBeTruthy();
   });
 
   it('should load periods and payments on init', () => {

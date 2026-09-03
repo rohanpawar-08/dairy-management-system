@@ -1,12 +1,22 @@
 <div class="reports-container">
   <div class="header-row">
+    <button
+      mat-icon-button
+      type="button"
+      routerLink="/dashboard"
+      [matTooltip]="i18n.t('common.back')"
+      aria-label="Back to Dashboard"
+    >
+      <mat-icon>arrow_back</mat-icon>
+    </button>
     <h1>{{ i18n.t('reports.title') }}</h1>
   </div>
 
   <mat-card class="filter-card">
     <mat-card-content class="filter-grid">
+      <!-- Report Type Selector -->
       <mat-form-field appearance="outline">
-        <mat-label>Report Type</mat-label>
+        <mat-label>{{ i18n.t('reports.reportType') }}</mat-label>
         <mat-select [ngModel]="selectedType()" (ngModelChange)="selectedType.set($event)">
           <mat-option *ngFor="let type of reportTypes" [value]="type.value">
             {{ i18n.t(type.labelKey) }}
@@ -14,36 +24,135 @@
         </mat-select>
       </mat-form-field>
 
-      <mat-form-field appearance="outline">
-        <mat-label>From Date</mat-label>
-        <input matInput [matDatepicker]="fromPicker" [ngModel]="fromDate()" (ngModelChange)="fromDate.set($event)">
-        <mat-datepicker-toggle matIconSuffix [for]="fromPicker"></mat-datepicker-toggle>
-        <mat-datepicker #fromPicker></mat-datepicker>
-      </mat-form-field>
+      <!-- Date Range (Shown for DAILY_COLLECTION_SUMMARY, FARMER_LEDGER_STATEMENT, PAYMENT_REGISTER) -->
+      <ng-container *ngIf="selectedType() === 'DAILY_COLLECTION_SUMMARY' || selectedType() === 'FARMER_LEDGER_STATEMENT' || selectedType() === 'PAYMENT_REGISTER'">
+        <mat-form-field appearance="outline">
+          <mat-label>{{ i18n.t('reports.fromDate') }}</mat-label>
+          <input matInput [matDatepicker]="fromPicker" [ngModel]="fromDate()" (ngModelChange)="fromDate.set($event)">
+          <mat-datepicker-toggle matIconSuffix [for]="fromPicker"></mat-datepicker-toggle>
+          <mat-datepicker #fromPicker></mat-datepicker>
+        </mat-form-field>
 
-      <mat-form-field appearance="outline">
-        <mat-label>To Date</mat-label>
-        <input matInput [matDatepicker]="toPicker" [ngModel]="toDate()" (ngModelChange)="toDate.set($event)">
-        <mat-datepicker-toggle matIconSuffix [for]="toPicker"></mat-datepicker-toggle>
-        <mat-datepicker #toPicker></mat-datepicker>
-      </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>{{ i18n.t('reports.toDate') }}</mat-label>
+          <input matInput [matDatepicker]="toPicker" [ngModel]="toDate()" (ngModelChange)="toDate.set($event)">
+          <mat-datepicker-toggle matIconSuffix [for]="toPicker"></mat-datepicker-toggle>
+          <mat-datepicker #toPicker></mat-datepicker>
+        </mat-form-field>
+      </ng-container>
 
+      <!-- Shift Selector (Shown for SHIFT_COLLECTION_REPORT) -->
+      <ng-container *ngIf="selectedType() === 'SHIFT_COLLECTION_REPORT'">
+        <mat-form-field appearance="outline">
+          <mat-label>{{ i18n.t('reports.shiftId') }} *</mat-label>
+          <input
+            matInput
+            type="number"
+            min="1"
+            [ngModel]="selectedShiftId()"
+            (ngModelChange)="selectedShiftId.set($event ? +$event : null)"
+            placeholder="उदा. 1"
+          />
+        </mat-form-field>
+        <div class="current-shift-hint" *ngIf="currentShift() as cs">
+          <button
+            mat-stroked-button
+            type="button"
+            color="primary"
+            (click)="selectedShiftId.set(cs.id)"
+          >
+            {{ i18n.t('reports.currentShift') }} (#{{ cs.id }} - {{ cs.shiftType }})
+          </button>
+        </div>
+      </ng-container>
+
+      <!-- Farmer Selector (Shown for FARMER_LEDGER_STATEMENT, and optional for PAYMENT_REGISTER) -->
+      <ng-container *ngIf="selectedType() === 'FARMER_LEDGER_STATEMENT' || selectedType() === 'PAYMENT_REGISTER'">
+        <mat-form-field appearance="outline">
+          <mat-label>{{ i18n.t('reports.selectFarmer') }} {{ selectedType() === 'FARMER_LEDGER_STATEMENT' ? '*' : '' }}</mat-label>
+          <mat-select
+            [ngModel]="selectedFarmerId()"
+            (ngModelChange)="selectedFarmerId.set($event)"
+            [disabled]="isLoadingEntities()"
+          >
+            <mat-option *ngIf="selectedType() === 'PAYMENT_REGISTER'" [value]="null">
+              -- {{ i18n.t('common.all') || 'All Farmers' }} --
+            </mat-option>
+            <mat-option *ngFor="let f of farmers()" [value]="f.id">
+              {{ f.memberCode }} - {{ f.nameMr }} {{ f.nameEn ? '(' + f.nameEn + ')' : '' }}
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
+      </ng-container>
+
+      <!-- Settlement Period Selector (Shown for SETTLEMENT_BATCH_REPORT) -->
+      <ng-container *ngIf="selectedType() === 'SETTLEMENT_BATCH_REPORT'">
+        <mat-form-field appearance="outline">
+          <mat-label>{{ i18n.t('reports.selectPeriod') }} *</mat-label>
+          <mat-select
+            [ngModel]="selectedPeriodId()"
+            (ngModelChange)="selectedPeriodId.set($event)"
+            [disabled]="isLoadingEntities()"
+          >
+            <mat-option *ngFor="let p of settlementPeriods()" [value]="p.id">
+              #{{ p.settlementNumber }} ({{ p.periodStart }} - {{ p.periodEnd }}) - {{ p.status }}
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
+      </ng-container>
+
+      <!-- Action Buttons -->
       <div class="action-buttons">
-        <button mat-raised-button color="primary" (click)="preview()">
+        <button
+          mat-raised-button
+          color="primary"
+          type="button"
+          (click)="preview()"
+          [disabled]="!isValidSelection() || isPreviewLoading() || state.isGeneratingPdf()"
+        >
           <mat-icon>visibility</mat-icon>
-          Preview
+          {{ i18n.t('reports.preview') }}
         </button>
-        <button mat-raised-button color="accent" (click)="exportPdf()" [disabled]="state.isGeneratingPdf()">
+        <button
+          mat-raised-button
+          color="accent"
+          type="button"
+          (click)="exportPdf()"
+          [disabled]="!isValidSelection() || state.isGeneratingPdf() || isPreviewLoading()"
+        >
           <mat-icon>picture_as_pdf</mat-icon>
           {{ state.isGeneratingPdf() ? i18n.t('reports.generating') : i18n.t('reports.pdfExport') }}
         </button>
       </div>
     </mat-card-content>
+
+    <!-- Validation / Empty / Loading Feedback -->
+    <div class="feedback-area">
+      <div class="loading-state" *ngIf="isLoadingEntities()">
+        <mat-spinner diameter="20"></mat-spinner>
+        <span>{{ i18n.t('reports.loadingEntities') }}</span>
+      </div>
+
+      <div class="empty-warning" *ngIf="selectedType() === 'FARMER_LEDGER_STATEMENT' && !isLoadingEntities() && farmers().length === 0">
+        <mat-icon color="warn">warning</mat-icon>
+        <span>{{ i18n.t('reports.noFarmers') }}</span>
+      </div>
+
+      <div class="empty-warning" *ngIf="selectedType() === 'SETTLEMENT_BATCH_REPORT' && !isLoadingEntities() && settlementPeriods().length === 0">
+        <mat-icon color="warn">warning</mat-icon>
+        <span>{{ i18n.t('reports.noPeriods') }}</span>
+      </div>
+
+      <div class="validation-warning" *ngIf="validationError()">
+        <mat-icon color="warn">error_outline</mat-icon>
+        <span>{{ validationError() }}</span>
+      </div>
+    </div>
   </mat-card>
 
   <mat-card class="preview-card" *ngIf="state.previewData()">
     <mat-card-header>
-      <mat-card-title>Preview</mat-card-title>
+      <mat-card-title>{{ i18n.t('reports.preview') }}</mat-card-title>
     </mat-card-header>
     <mat-card-content>
       <pre class="debug-preview">{{ state.previewData() | json }}</pre>

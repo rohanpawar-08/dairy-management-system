@@ -4,12 +4,40 @@
   margin: 0 auto;
 
   .header-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
     margin-bottom: 1.5rem;
     h1 {
       margin: 0;
       color: var(--mat-sys-on-surface);
       font-size: 1.5rem;
       font-weight: 500;
+    }
+  }
+
+  .current-shift-hint {
+    padding-bottom: 1.25rem;
+  }
+
+  .feedback-area {
+    padding: 0 8px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+
+    .loading-state,
+    .empty-warning,
+    .validation-warning {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+    }
+
+    .empty-warning,
+    .validation-warning {
+      color: #c62828;
     }
   }
 

@@ -7,7 +7,33 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatIconModule } from '@angular/material/icon';
 import { I18nService } from '../../../core/services/i18n.service';
+import { AuthStateService } from '../../../core/services/auth-state.service';
 import { CreateSettlementDraftPayload } from '../../../../../shared/ipc-contracts';
+
+export function calculateDefaultPeriodStart(
+  startDayName: string = 'MONDAY',
+  baseDate: Date = new Date()
+): string {
+  const days = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
+  const targetIdx = days.indexOf(startDayName.toUpperCase());
+  const validTargetIdx = targetIdx >= 0 ? targetIdx : 1;
+
+  const y = baseDate.getFullYear();
+  const m = baseDate.getMonth();
+  const d = baseDate.getDate();
+  const utcDate = new Date(Date.UTC(y, m, d));
+
+  let diff = utcDate.getUTCDay() - validTargetIdx;
+  if (diff < 0) {
+    diff += 7;
+  }
+  utcDate.setUTCDate(utcDate.getUTCDate() - diff);
+
+  const resY = utcDate.getUTCFullYear();
+  const resM = String(utcDate.getUTCMonth() + 1).padStart(2, '0');
+  const resD = String(utcDate.getUTCDate()).padStart(2, '0');
+  return `${resY}-${resM}-${resD}`;
+}
 
 @Component({
   selector: 'app-create-period-dialog',
@@ -105,24 +131,22 @@ import { CreateSettlementDraftPayload } from '../../../../../shared/ipc-contract
 })
 export class CreatePeriodDialogComponent {
   public readonly i18n = inject(I18nService);
+  private readonly auth = inject(AuthStateService);
   private readonly fb = inject(FormBuilder);
 
   public calculatedEnd: string = '';
 
   public readonly form: FormGroup = this.fb.group({
-    periodStart: [this.getDefaultMonday(), [Validators.required]],
+    periodStart: [this.getDefaultStartDate(), [Validators.required]],
   });
 
   constructor(public dialogRef: MatDialogRef<CreatePeriodDialogComponent, CreateSettlementDraftPayload | null>) {
     this.onStartDateChange();
   }
 
-  private getDefaultMonday(): string {
-    const d = new Date();
-    const day = d.getDay();
-    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-    const monday = new Date(d.setDate(diff));
-    return monday.toISOString().slice(0, 10);
+  public getDefaultStartDate(): string {
+    const configuredDay = this.auth.dairyProfile()?.settlementStartDay || 'MONDAY';
+    return calculateDefaultPeriodStart(configuredDay);
   }
 
   public onStartDateChange(): void {

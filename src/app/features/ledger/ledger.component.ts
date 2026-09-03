@@ -29,11 +29,15 @@ import {
   VoidAdjustmentDialogData,
 } from './void-adjustment-dialog/void-adjustment-dialog.component';
 
+import { RouterLink } from '@angular/router';
+import { MatTooltipModule } from '@angular/material/tooltip';
+
 @Component({
   selector: 'app-ledger',
   standalone: true,
   imports: [
     CommonModule,
+    RouterLink,
     FormsModule,
     ReactiveFormsModule,
     MatCardModule,
@@ -46,6 +50,7 @@ import {
     MatChipsModule,
     MatDialogModule,
     MatProgressSpinnerModule,
+    MatTooltipModule,
   ],
   templateUrl: './ledger.component.html',
   styleUrls: ['./ledger.component.scss'],

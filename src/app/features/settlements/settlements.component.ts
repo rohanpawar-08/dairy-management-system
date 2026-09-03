@@ -25,11 +25,15 @@ import {
   WeeklySettlementDto,
 } from '../../../../shared/ipc-contracts';
 
+import { RouterLink } from '@angular/router';
+import { MatTooltipModule } from '@angular/material/tooltip';
+
 @Component({
   selector: 'app-settlements',
   standalone: true,
   imports: [
     CommonModule,
+    RouterLink,
     FormsModule,
     MatTabsModule,
     MatCardModule,
@@ -40,6 +44,7 @@ import {
     MatChipsModule,
     MatProgressSpinnerModule,
     MatDialogModule,
+    MatTooltipModule,
   ],
   templateUrl: './settlements.component.html',
   styleUrls: ['./settlements.component.scss'],

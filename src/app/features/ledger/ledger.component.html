@@ -2,11 +2,22 @@
   <!-- Page Header & Search Bar -->
   <div class="top-bar">
     <div class="header-title">
-      <h1>
-        <mat-icon color="primary">account_balance_wallet</mat-icon>
-        <span>{{ i18n.t('ledger.title') }}</span>
-      </h1>
-      <p class="subtitle">{{ i18n.t('ledger.subtitle') }}</p>
+      <button
+        mat-icon-button
+        type="button"
+        routerLink="/dashboard"
+        [matTooltip]="i18n.t('common.back')"
+        aria-label="Back to Dashboard"
+      >
+        <mat-icon>arrow_back</mat-icon>
+      </button>
+      <div>
+        <h1>
+          <mat-icon color="primary">account_balance_wallet</mat-icon>
+          <span>{{ i18n.t('ledger.title') }}</span>
+        </h1>
+        <p class="subtitle">{{ i18n.t('ledger.subtitle') }}</p>
+      </div>
     </div>
 
     <!-- Member Code Search Box -->
