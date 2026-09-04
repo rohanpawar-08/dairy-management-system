@@ -110,11 +110,22 @@ describe('DashboardComponent (Angular Unit)', () => {
     expect(compiled.querySelector('.rate-plans-card')).toBeNull();
   });
 
-  it('triggers logout on button click', async () => {
+  it('renders visible logout button in header and triggers logout on click', async () => {
     const fixture = TestBed.createComponent(DashboardComponent);
     const component = fixture.componentInstance;
+    component.i18n.setLanguage('mr');
+    fixture.detectChanges();
 
-    await component.onLogout();
+    const compiled = fixture.nativeElement as HTMLElement;
+    const logoutBtn = compiled.querySelector('header.app-header button.logout-btn') as HTMLButtonElement;
+    expect(logoutBtn).toBeTruthy();
+    expect(logoutBtn.textContent).toContain('लॉगआउट');
+
+    component.i18n.setLanguage('en');
+    fixture.detectChanges();
+    expect(logoutBtn.textContent).toContain('Logout');
+
+    logoutBtn.click();
     expect(mockAuthState.logout).toHaveBeenCalled();
   });
 
