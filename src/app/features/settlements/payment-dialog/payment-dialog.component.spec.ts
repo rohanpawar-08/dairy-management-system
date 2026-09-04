@@ -108,6 +108,30 @@ describe('PaymentDialogComponent', () => {
     expect(component.form.valid).toBe(true);
   });
 
+  it.each(['0', '0.00'])('rejects a zero payment amount after paise parsing: %s', (amountRupees) => {
+    component.form.patchValue({
+      amountRupees,
+      paymentMethod: 'CASH',
+      businessDate: '2026-09-15',
+    });
+
+    expect(component.form.get('amountRupees')?.hasError('positivePaise')).toBe(true);
+    expect(component.form.invalid).toBe(true);
+    component.onConfirm();
+    expect(mockDialogRef.close).not.toHaveBeenCalled();
+  });
+
+  it('accepts the smallest positive paise payment amount', () => {
+    component.form.patchValue({
+      amountRupees: '0.01',
+      paymentMethod: 'CASH',
+      businessDate: '2026-09-15',
+    });
+
+    expect(component.form.get('amountRupees')?.hasError('positivePaise')).toBe(false);
+    expect(component.form.valid).toBe(true);
+  });
+
   it('should close with null on cancel', () => {
     component.onCancel();
     expect(mockDialogRef.close).toHaveBeenCalledWith(null);

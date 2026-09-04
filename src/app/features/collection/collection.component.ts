@@ -54,6 +54,7 @@ import { CloseShiftDialogComponent } from './close-shift-dialog/close-shift-dial
 import { ReopenShiftDialogComponent } from './reopen-shift-dialog/reopen-shift-dialog.component';
 
 import { RouterLink } from '@angular/router';
+import { firstValueFrom } from 'rxjs';
 
 @Component({
   selector: 'app-collection',
@@ -113,6 +114,7 @@ export class CollectionComponent implements OnInit {
   public readonly ratePreview = signal<ResolveApprovedRateResult | null>(null);
   public readonly ratePreviewError = signal<string | null>(null);
   public readonly isCalculatingPreview = signal<boolean>(false);
+  public readonly isSubmitting = signal<boolean>(false);
   public readonly successBanner = signal<string | null>(null);
 
   public readonly isOwner = computed(() => this.authState.isOwner());
@@ -354,6 +356,10 @@ export class CollectionComponent implements OnInit {
   }
 
   public canSave(): boolean {
+    return this.isCollectionReady() && !this.isSubmitting();
+  }
+
+  private isCollectionReady(): boolean {
     const milkType = this.collectionForm.get('milkType')?.value;
     return (
       this.collectionForm.valid &&
@@ -366,50 +372,53 @@ export class CollectionComponent implements OnInit {
   }
 
   public async onSaveCollection(): Promise<void> {
-    if (!this.canSave()) return;
+    if (this.isSubmitting()) return;
+    this.isSubmitting.set(true);
 
-    const shift = this.collectionState.currentShift();
-    const farmer = this.resolvedFarmer();
-    if (!shift || !farmer) return;
+    try {
+      if (!this.isCollectionReady()) return;
 
-    const milkType = this.collectionForm.get('milkType')?.value as RatePlanMilkType;
-    const quantityLitres = this.collectionForm.get('quantityLitres')?.value;
-    const fatPercent = this.collectionForm.get('fatPercent')?.value;
-    const snfPercent = this.collectionForm.get('snfPercent')?.value;
+      const shift = this.collectionState.currentShift();
+      const farmer = this.resolvedFarmer();
+      if (!shift || !farmer) return;
 
-    // Check for duplicate collection
-    const dupCheck = await this.collectionState.checkDuplicate({
-      shiftId: shift.id,
-      farmerId: farmer.id,
-      milkType,
-    });
+      const milkType = this.collectionForm.get('milkType')?.value as RatePlanMilkType;
+      const quantityLitres = this.collectionForm.get('quantityLitres')?.value;
+      const fatPercent = this.collectionForm.get('fatPercent')?.value;
+      const snfPercent = this.collectionForm.get('snfPercent')?.value;
 
-    if (dupCheck.isDuplicate) {
-      const dialogRef = this.dialog.open(DuplicateConfirmDialogComponent, {
-        data: {
-          memberCode: farmer.memberCode,
-          farmerNameMr: farmer.nameMr,
-          farmerNameEn: farmer.nameEn,
-          milkType,
-          existingCollections: dupCheck.existingCollections,
-        },
+      const dupCheck = await this.collectionState.checkDuplicate({
+        shiftId: shift.id,
+        farmerId: farmer.id,
+        milkType,
       });
 
-      dialogRef.afterClosed().subscribe(async (result) => {
-        if (result && result.confirmed) {
-          await this.executeSave({
-            shiftId: shift.id,
-            farmerId: farmer.id,
+      if (dupCheck.isDuplicate) {
+        const dialogRef = this.dialog.open(DuplicateConfirmDialogComponent, {
+          data: {
+            memberCode: farmer.memberCode,
+            farmerNameMr: farmer.nameMr,
+            farmerNameEn: farmer.nameEn,
             milkType,
-            quantityLitres,
-            fatPercent,
-            snfPercent,
-            duplicateConfirmed: true,
-            duplicateReason: result.duplicateReason,
-          });
-        }
-      });
-    } else {
+            existingCollections: dupCheck.existingCollections,
+          },
+        });
+        const result = await firstValueFrom(dialogRef.afterClosed());
+        if (!result?.confirmed) return;
+
+        await this.executeSave({
+          shiftId: shift.id,
+          farmerId: farmer.id,
+          milkType,
+          quantityLitres,
+          fatPercent,
+          snfPercent,
+          duplicateConfirmed: true,
+          duplicateReason: result.duplicateReason,
+        });
+        return;
+      }
+
       await this.executeSave({
         shiftId: shift.id,
         farmerId: farmer.id,
@@ -418,6 +427,10 @@ export class CollectionComponent implements OnInit {
         fatPercent,
         snfPercent,
       });
+    } catch {
+      // Errors are surfaced by the state service.
+    } finally {
+      this.isSubmitting.set(false);
     }
   }
 

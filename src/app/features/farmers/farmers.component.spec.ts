@@ -7,6 +7,8 @@ import { NoopAnimationsModule } from '@angular/platform-browser/animations';
 import { signal } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
 import { FarmerListDto } from '../../../../shared/ipc-contracts';
+import { By } from '@angular/platform-browser';
+import { MatTooltip } from '@angular/material/tooltip';
 
 describe('FarmersComponent (Angular Unit)', () => {
   let mockFarmerState: any;
@@ -96,5 +98,19 @@ describe('FarmersComponent (Angular Unit)', () => {
 
     component.onStatusFilterChange('INACTIVE');
     expect(mockFarmerState.statusFilter()).toBe('INACTIVE');
+  });
+
+  it('uses the bilingual Edit tooltip for the edit action', () => {
+    const fixture = TestBed.createComponent(FarmersComponent);
+    const component = fixture.componentInstance;
+
+    component.i18n.setLanguage('en');
+    fixture.detectChanges();
+    const editButton = fixture.debugElement.query(By.css('.actions-cell button'));
+    expect(editButton.injector.get(MatTooltip).message).toBe('Edit');
+
+    component.i18n.setLanguage('mr');
+    fixture.detectChanges();
+    expect(editButton.injector.get(MatTooltip).message).toBe('संपादित करा');
   });
 });

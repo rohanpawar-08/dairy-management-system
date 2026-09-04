@@ -5,7 +5,7 @@
       type="button"
       routerLink="/dashboard"
       [matTooltip]="i18n.t('common.back')"
-      aria-label="Back to Dashboard"
+      [attr.aria-label]="i18n.t('reports.backToDashboard')"
     >
       <mat-icon>arrow_back</mat-icon>
     </button>
@@ -17,7 +17,7 @@
       <!-- Report Type Selector -->
       <mat-form-field appearance="outline">
         <mat-label>{{ i18n.t('reports.reportType') }}</mat-label>
-        <mat-select [ngModel]="selectedType()" (ngModelChange)="selectedType.set($event)">
+        <mat-select [ngModel]="selectedType()" (ngModelChange)="onReportTypeChange($event)">
           <mat-option *ngFor="let type of reportTypes" [value]="type.value">
             {{ i18n.t(type.labelKey) }}
           </mat-option>
@@ -51,7 +51,7 @@
             min="1"
             [ngModel]="selectedShiftId()"
             (ngModelChange)="selectedShiftId.set($event ? +$event : null)"
-            placeholder="उदा. 1"
+            [placeholder]="i18n.t('reports.shiftIdPlaceholder')"
           />
         </mat-form-field>
         <div class="current-shift-hint" *ngIf="currentShift() as cs">
@@ -61,7 +61,7 @@
             color="primary"
             (click)="selectedShiftId.set(cs.id)"
           >
-            {{ i18n.t('reports.currentShift') }} (#{{ cs.id }} - {{ cs.shiftType }})
+            {{ i18n.t('reports.currentShift') }} (#{{ cs.id }} - {{ translateShiftType(cs.shiftType) }})
           </button>
         </div>
       </ng-container>
@@ -76,7 +76,7 @@
             [disabled]="isLoadingEntities()"
           >
             <mat-option *ngIf="selectedType() === 'PAYMENT_REGISTER'" [value]="null">
-              -- {{ i18n.t('common.all') || 'All Farmers' }} --
+              — {{ i18n.t('reports.allFarmers') }} —
             </mat-option>
             <mat-option *ngFor="let f of farmers()" [value]="f.id">
               {{ f.memberCode }} - {{ f.nameMr }} {{ f.nameEn ? '(' + f.nameEn + ')' : '' }}
@@ -95,7 +95,7 @@
             [disabled]="isLoadingEntities()"
           >
             <mat-option *ngFor="let p of settlementPeriods()" [value]="p.id">
-              #{{ p.settlementNumber }} ({{ p.periodStart }} - {{ p.periodEnd }}) - {{ p.status }}
+              #{{ p.settlementNumber }} ({{ p.periodStart }} {{ i18n.t('reports.rangeSeparator') }} {{ p.periodEnd }}) — {{ translateStatus(p.status) }}
             </mat-option>
           </mat-select>
         </mat-form-field>
@@ -133,6 +133,11 @@
         <span>{{ i18n.t('reports.loadingEntities') }}</span>
       </div>
 
+      <div class="validation-warning" *ngIf="entityError()">
+        <mat-icon color="warn">error_outline</mat-icon>
+        <span>{{ entityError() }}</span>
+      </div>
+
       <div class="empty-warning" *ngIf="selectedType() === 'FARMER_LEDGER_STATEMENT' && !isLoadingEntities() && farmers().length === 0">
         <mat-icon color="warn">warning</mat-icon>
         <span>{{ i18n.t('reports.noFarmers') }}</span>
@@ -150,12 +155,260 @@
     </div>
   </mat-card>
 
-  <mat-card class="preview-card" *ngIf="state.previewData()">
+  <mat-card class="preview-card" *ngIf="state.previewData() as report">
     <mat-card-header>
-      <mat-card-title>{{ i18n.t('reports.preview') }}</mat-card-title>
+      <mat-card-title id="report-preview-title">{{ reportTitle(previewType()) }}</mat-card-title>
+      <mat-card-subtitle>
+        {{ i18n.t('reports.generatedAt') }}: {{ report.generatedAt }}
+      </mat-card-subtitle>
     </mat-card-header>
-    <mat-card-content>
-      <pre class="debug-preview">{{ state.previewData() | json }}</pre>
+    <mat-card-content [ngSwitch]="previewType()" aria-labelledby="report-preview-title">
+      <section *ngSwitchCase="'DAILY_COLLECTION_SUMMARY'" class="report-section daily-report">
+        <div class="summary-grid" role="list" [attr.aria-label]="i18n.t('reports.summary')">
+          <div class="metric-card" role="listitem">
+            <span>{{ i18n.t('reports.totalCollections') }}</span>
+            <strong>{{ report.totalCollections }}</strong>
+          </div>
+          <div class="metric-card" role="listitem">
+            <span>{{ i18n.t('reports.uniqueFarmers') }}</span>
+            <strong>{{ report.uniqueFarmers }}</strong>
+          </div>
+          <div class="metric-card" role="listitem">
+            <span>{{ i18n.t('reports.totalLitres') }}</span>
+            <strong>{{ report.totalLitresFormatted }}</strong>
+          </div>
+          <div class="metric-card" role="listitem">
+            <span>{{ i18n.t('reports.totalAmount') }}</span>
+            <strong>{{ report.totalAmountFormatted }}</strong>
+          </div>
+        </div>
+
+        <dl class="metadata-grid">
+          <div><dt>{{ i18n.t('reports.fromDate') }}</dt><dd>{{ report.fromDate }}</dd></div>
+          <div><dt>{{ i18n.t('reports.toDate') }}</dt><dd>{{ report.toDate }}</dd></div>
+        </dl>
+
+        <div class="table-scroll">
+          <table class="report-table">
+            <caption>{{ i18n.t('reports.milkBreakdown') }}</caption>
+            <thead>
+              <tr>
+                <th scope="col">{{ i18n.t('reports.milkType') }}</th>
+                <th scope="col">{{ i18n.t('reports.litres') }}</th>
+                <th scope="col">{{ i18n.t('reports.amount') }}</th>
+                <th scope="col">{{ i18n.t('reports.averageFat') }}</th>
+                <th scope="col">{{ i18n.t('reports.averageSnf') }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th scope="row">{{ translateMilkType('COW') }}</th>
+                <td>{{ report.cowLitresFormatted }}</td>
+                <td>{{ report.cowAmountFormatted }}</td>
+                <td>{{ report.cowFatAvg }}</td>
+                <td>{{ report.cowSnfAvg }}</td>
+              </tr>
+              <tr>
+                <th scope="row">{{ translateMilkType('BUFFALO') }}</th>
+                <td>{{ report.buffaloLitresFormatted }}</td>
+                <td>{{ report.buffaloAmountFormatted }}</td>
+                <td>{{ report.buffaloFatAvg }}</td>
+                <td>{{ report.buffaloSnfAvg }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="table-scroll">
+          <table class="report-table">
+            <caption>{{ i18n.t('reports.shiftBreakdown') }}</caption>
+            <thead>
+              <tr>
+                <th scope="col">{{ i18n.t('reports.shift') }}</th>
+                <th scope="col">{{ i18n.t('reports.litres') }}</th>
+                <th scope="col">{{ i18n.t('reports.amount') }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th scope="row">{{ translateShiftType('MORNING') }}</th>
+                <td>{{ report.morningLitresFormatted }}</td>
+                <td>{{ report.morningAmountFormatted }}</td>
+              </tr>
+              <tr>
+                <th scope="row">{{ translateShiftType('EVENING') }}</th>
+                <td>{{ report.eveningLitresFormatted }}</td>
+                <td>{{ report.eveningAmountFormatted }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section *ngSwitchCase="'SHIFT_COLLECTION_REPORT'" class="report-section shift-report">
+        <dl class="metadata-grid">
+          <div><dt>{{ i18n.t('reports.shiftId') }}</dt><dd>{{ report.shift?.id }}</dd></div>
+          <div><dt>{{ i18n.t('reports.date') }}</dt><dd>{{ report.shift?.business_date }}</dd></div>
+          <div><dt>{{ i18n.t('reports.shift') }}</dt><dd>{{ translateShiftType(report.shift?.shift_type) }}</dd></div>
+          <div><dt>{{ i18n.t('reports.statusLabel') }}</dt><dd>{{ translateStatus(report.shift?.status) }}</dd></div>
+        </dl>
+
+        <div class="summary-grid" role="list" [attr.aria-label]="i18n.t('reports.summary')">
+          <div class="metric-card" role="listitem"><span>{{ i18n.t('reports.totalCollections') }}</span><strong>{{ report.stats?.totalCollections }}</strong></div>
+          <div class="metric-card" role="listitem"><span>{{ i18n.t('reports.activeCollections') }}</span><strong>{{ report.stats?.activeCollections }}</strong></div>
+          <div class="metric-card" role="listitem"><span>{{ i18n.t('reports.voidedCollections') }}</span><strong>{{ report.stats?.voidedCollections }}</strong></div>
+          <div class="metric-card" role="listitem"><span>{{ i18n.t('reports.totalLitres') }}</span><strong>{{ report.stats?.totalLitresFormatted }}</strong></div>
+          <div class="metric-card" role="listitem"><span>{{ i18n.t('reports.totalAmount') }}</span><strong>{{ report.stats?.totalAmountFormatted }}</strong></div>
+        </div>
+
+        <div class="table-scroll">
+          <table class="report-table">
+            <caption>{{ i18n.t('reports.milkBreakdown') }}</caption>
+            <thead><tr><th scope="col">{{ i18n.t('reports.milkType') }}</th><th scope="col">{{ i18n.t('reports.litres') }}</th><th scope="col">{{ i18n.t('reports.amount') }}</th></tr></thead>
+            <tbody>
+              <tr><th scope="row">{{ translateMilkType('COW') }}</th><td>{{ report.stats?.cowLitresFormatted }}</td><td>{{ report.stats?.cowAmountFormatted }}</td></tr>
+              <tr><th scope="row">{{ translateMilkType('BUFFALO') }}</th><td>{{ report.stats?.buffaloLitresFormatted }}</td><td>{{ report.stats?.buffaloAmountFormatted }}</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="table-scroll">
+          <table class="report-table">
+            <caption>{{ i18n.t('reports.collectionEntries') }}</caption>
+            <thead>
+              <tr>
+                <th scope="col">{{ i18n.t('reports.receiptNumber') }}</th>
+                <th scope="col">{{ i18n.t('reports.farmerId') }}</th>
+                <th scope="col">{{ i18n.t('reports.milkType') }}</th>
+                <th scope="col">{{ i18n.t('reports.litres') }}</th>
+                <th scope="col">{{ i18n.t('reports.fat') }}</th>
+                <th scope="col">{{ i18n.t('reports.snf') }}</th>
+                <th scope="col">{{ i18n.t('reports.rate') }}</th>
+                <th scope="col">{{ i18n.t('reports.amount') }}</th>
+                <th scope="col">{{ i18n.t('reports.statusLabel') }}</th>
+                <th scope="col">{{ i18n.t('reports.duplicateReason') }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let row of report.collections || []">
+                <th scope="row">{{ row.receipt_number }}</th>
+                <td>{{ row.farmer_id }}</td>
+                <td>{{ translateMilkType(row.milk_type) }}</td>
+                <td>{{ row.quantity_litres_formatted }}</td>
+                <td>{{ row.fat_formatted }}</td>
+                <td>{{ row.snf_formatted }}</td>
+                <td>{{ row.rate_rupees_formatted }}</td>
+                <td>{{ row.amount_rupees_formatted }}</td>
+                <td>{{ translateStatus(row.status) }}</td>
+                <td>{{ row.duplicate_reason || '—' }}</td>
+              </tr>
+              <tr *ngIf="!report.collections?.length"><td colspan="10" class="empty-cell">{{ i18n.t('reports.noData') }}</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section *ngSwitchCase="'FARMER_LEDGER_STATEMENT'" class="report-section ledger-report">
+        <dl class="metadata-grid">
+          <div><dt>{{ i18n.t('reports.memberCode') }}</dt><dd>{{ report.ledger?.memberCode }}</dd></div>
+          <div><dt>{{ i18n.t('reports.farmerName') }}</dt><dd>{{ farmerName(report.ledger?.farmerNameMr, report.ledger?.farmerNameEn) }}</dd></div>
+          <div><dt>{{ i18n.t('reports.accountStatus') }}</dt><dd>{{ translateStatus(report.ledger?.isActive ? 'ACTIVE' : 'INACTIVE') }}</dd></div>
+          <div><dt>{{ i18n.t('reports.fromDate') }}</dt><dd>{{ report.ledger?.fromDate || '—' }}</dd></div>
+          <div><dt>{{ i18n.t('reports.toDate') }}</dt><dd>{{ report.ledger?.toDate || '—' }}</dd></div>
+          <div><dt>{{ i18n.t('reports.asOfDate') }}</dt><dd>{{ report.ledger?.asOfDate }}</dd></div>
+        </dl>
+
+        <div class="summary-grid" role="list" [attr.aria-label]="i18n.t('reports.summary')">
+          <div class="metric-card" role="listitem"><span>{{ i18n.t('reports.openingBalance') }}</span><strong>{{ report.ledger?.openingBalanceFormatted }}</strong></div>
+          <div class="metric-card" role="listitem"><span>{{ i18n.t('reports.milkCredits') }}</span><strong>{{ report.ledger?.milkCreditsFormatted }}</strong></div>
+          <div class="metric-card" role="listitem"><span>{{ i18n.t('reports.adjustmentCredits') }}</span><strong>{{ report.ledger?.adjustmentCreditsFormatted }}</strong></div>
+          <div class="metric-card" role="listitem"><span>{{ i18n.t('reports.deductions') }}</span><strong>{{ report.ledger?.deductionsFormatted }}</strong></div>
+          <div class="metric-card" role="listitem"><span>{{ i18n.t('reports.advances') }}</span><strong>{{ report.ledger?.advancesFormatted }}</strong></div>
+          <div class="metric-card" role="listitem"><span>{{ i18n.t('reports.netMovement') }}</span><strong>{{ report.ledger?.netMovementFormatted }}</strong></div>
+          <div class="metric-card" role="listitem"><span>{{ i18n.t('reports.broughtForward') }}</span><strong>{{ report.ledger?.broughtForwardBalanceFormatted }}</strong></div>
+          <div class="metric-card emphasis" role="listitem"><span>{{ i18n.t('reports.currentBalance') }}</span><strong>{{ report.ledger?.currentBalanceFormatted }}</strong></div>
+        </div>
+
+        <div class="table-scroll">
+          <table class="report-table">
+            <caption>{{ i18n.t('reports.ledgerEntries') }}</caption>
+            <thead><tr><th scope="col">{{ i18n.t('reports.date') }}</th><th scope="col">{{ i18n.t('reports.reference') }}</th><th scope="col">{{ i18n.t('reports.description') }}</th><th scope="col">{{ i18n.t('reports.source') }}</th><th scope="col">{{ i18n.t('reports.credit') }}</th><th scope="col">{{ i18n.t('reports.debit') }}</th><th scope="col">{{ i18n.t('reports.balance') }}</th><th scope="col">{{ i18n.t('reports.statusLabel') }}</th></tr></thead>
+            <tbody>
+              <tr *ngFor="let row of report.ledger?.items || []">
+                <td>{{ row.businessDate }}</td><th scope="row">{{ row.referenceNumber }}</th><td>{{ row.description }}</td><td>{{ translateLedgerSource(row.sourceType) }}</td><td>{{ formatPaise(row.creditPaise) }}</td><td>{{ formatPaise(row.debitPaise) }}</td><td>{{ formatPaise(row.runningBalancePaise) }}</td><td>{{ translateStatus(row.status) }}</td>
+              </tr>
+              <tr *ngIf="!report.ledger?.items?.length"><td colspan="8" class="empty-cell">{{ i18n.t('reports.noData') }}</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section *ngSwitchCase="'SETTLEMENT_BATCH_REPORT'" class="report-section settlement-report">
+        <dl class="metadata-grid">
+          <div><dt>{{ i18n.t('reports.settlementNumber') }}</dt><dd>{{ report.period?.settlement_number }}</dd></div>
+          <div><dt>{{ i18n.t('reports.fromDate') }}</dt><dd>{{ report.period?.period_start }}</dd></div>
+          <div><dt>{{ i18n.t('reports.toDate') }}</dt><dd>{{ report.period?.period_end }}</dd></div>
+          <div><dt>{{ i18n.t('reports.statusLabel') }}</dt><dd>{{ translateStatus(report.period?.status) }}</dd></div>
+        </dl>
+        <div class="table-scroll">
+          <table class="report-table">
+            <caption>{{ i18n.t('reports.settlementItems') }}</caption>
+            <thead><tr><th scope="col">{{ i18n.t('reports.memberCode') }}</th><th scope="col">{{ i18n.t('reports.farmerName') }}</th><th scope="col">{{ i18n.t('reports.openingBalance') }}</th><th scope="col">{{ i18n.t('reports.milkCollections') }}</th><th scope="col">{{ i18n.t('reports.litres') }}</th><th scope="col">{{ i18n.t('reports.milkAmount') }}</th><th scope="col">{{ i18n.t('reports.adjustmentCredits') }}</th><th scope="col">{{ i18n.t('reports.deductions') }}</th><th scope="col">{{ i18n.t('reports.advances') }}</th><th scope="col">{{ i18n.t('reports.netAmount') }}</th><th scope="col">{{ i18n.t('reports.allocated') }}</th><th scope="col">{{ i18n.t('reports.outstanding') }}</th></tr></thead>
+            <tbody>
+              <tr *ngFor="let row of report.items || []">
+                <th scope="row">{{ row.member_code_snapshot }}</th><td>{{ farmerName(row.farmer_name_mr_snapshot, row.farmer_name_en_snapshot) }}</td><td>{{ formatPaise(row.opening_balance_paise) }}</td><td>{{ row.milk_collection_count }}</td><td>{{ row.milk_litres_formatted }}</td><td>{{ row.milk_amount_formatted }}</td><td>{{ row.credit_amount_formatted }}</td><td>{{ row.deduction_amount_formatted }}</td><td>{{ row.advance_amount_formatted }}</td><td>{{ row.net_amount_formatted }}</td><td>{{ row.allocated_formatted }}</td><td>{{ row.outstanding_formatted }}</td>
+              </tr>
+              <tr *ngIf="!report.items?.length"><td colspan="12" class="empty-cell">{{ i18n.t('reports.noData') }}</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section *ngSwitchCase="'PAYMENT_REGISTER'" class="report-section payment-report">
+        <dl class="metadata-grid">
+          <div><dt>{{ i18n.t('reports.fromDate') }}</dt><dd>{{ report.filters?.fromDate || '—' }}</dd></div>
+          <div><dt>{{ i18n.t('reports.toDate') }}</dt><dd>{{ report.filters?.toDate || '—' }}</dd></div>
+          <div><dt>{{ i18n.t('reports.farmerId') }}</dt><dd>{{ report.filters?.farmerId || i18n.t('reports.allFarmers') }}</dd></div>
+          <div><dt>{{ i18n.t('reports.paymentMethodLabel') }}</dt><dd>{{ report.filters?.method ? translatePaymentMethod(report.filters.method) : i18n.t('common.all') }}</dd></div>
+          <div><dt>{{ i18n.t('reports.statusLabel') }}</dt><dd>{{ report.filters?.status ? translateStatus(report.filters.status) : i18n.t('common.all') }}</dd></div>
+        </dl>
+        <div class="summary-grid" role="list" [attr.aria-label]="i18n.t('reports.summary')">
+          <div class="metric-card emphasis" role="listitem"><span>{{ i18n.t('reports.totalActiveAmount') }}</span><strong>{{ report.totalAmountFormatted }}</strong></div>
+        </div>
+        <div class="table-scroll">
+          <table class="report-table">
+            <caption>{{ i18n.t('reports.payments') }}</caption>
+            <thead><tr><th scope="col">{{ i18n.t('reports.date') }}</th><th scope="col">{{ i18n.t('reports.paymentNumber') }}</th><th scope="col">{{ i18n.t('reports.farmerId') }}</th><th scope="col">{{ i18n.t('reports.paymentMethodLabel') }}</th><th scope="col">{{ i18n.t('reports.amount') }}</th><th scope="col">{{ i18n.t('reports.externalReference') }}</th><th scope="col">{{ i18n.t('reports.notes') }}</th><th scope="col">{{ i18n.t('reports.statusLabel') }}</th></tr></thead>
+            <tbody>
+              <tr *ngFor="let row of report.payments || []">
+                <td>{{ row.business_date }}</td><th scope="row">{{ row.payment_number }}</th><td>{{ row.farmer_id }}</td><td>{{ translatePaymentMethod(row.payment_method) }}</td><td>{{ row.amount_formatted }}</td><td>{{ row.external_reference || '—' }}</td><td>{{ row.notes || '—' }}</td><td>{{ translateStatus(row.status) }}</td>
+              </tr>
+              <tr *ngIf="!report.payments?.length"><td colspan="8" class="empty-cell">{{ i18n.t('reports.noData') }}</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section *ngSwitchCase="'OUTSTANDING_FARMER_REPORT'" class="report-section outstanding-report">
+        <div class="summary-grid" role="list" [attr.aria-label]="i18n.t('reports.summary')">
+          <div class="metric-card" role="listitem"><span>{{ i18n.t('reports.totalPayable') }}</span><strong>{{ report.totalPayableFormatted }}</strong></div>
+          <div class="metric-card" role="listitem"><span>{{ i18n.t('reports.totalDebt') }}</span><strong>{{ report.totalDebtFormatted }}</strong></div>
+        </div>
+        <div class="table-scroll">
+          <table class="report-table">
+            <caption>{{ i18n.t('reports.outstandingFarmers') }}</caption>
+            <thead><tr><th scope="col">{{ i18n.t('reports.memberCode') }}</th><th scope="col">{{ i18n.t('reports.farmerName') }}</th><th scope="col">{{ i18n.t('reports.accountStatus') }}</th><th scope="col">{{ i18n.t('reports.totalNet') }}</th><th scope="col">{{ i18n.t('reports.totalPaid') }}</th><th scope="col">{{ i18n.t('reports.outstanding') }}</th></tr></thead>
+            <tbody>
+              <tr *ngFor="let row of report.items || []">
+                <th scope="row">{{ row.member_code }}</th><td>{{ farmerName(row.name_mr, row.name_en) }}</td><td>{{ translateStatus(row.is_active ? 'ACTIVE' : 'INACTIVE') }}</td><td>{{ row.total_net_formatted }}</td><td>{{ row.total_paid_formatted }}</td><td>{{ row.outstanding_formatted }}</td>
+              </tr>
+              <tr *ngIf="!report.items?.length"><td colspan="6" class="empty-cell">{{ i18n.t('reports.noData') }}</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <p *ngSwitchDefault class="empty-cell">{{ i18n.t('reports.noData') }}</p>
     </mat-card-content>
   </mat-card>
 </div>

@@ -1,6 +1,14 @@
 import { Component, Inject, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
+import {
+  AbstractControl,
+  FormsModule,
+  ReactiveFormsModule,
+  FormBuilder,
+  FormGroup,
+  ValidationErrors,
+  Validators,
+} from '@angular/forms';
 import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -13,6 +21,22 @@ import {
   CreateAdjustmentPayload,
 } from '../../../../../shared/ipc-contracts';
 import { I18nService } from '../../../core/services/i18n.service';
+import { parseRupeesToPaise } from '../../../../../shared/money';
+
+export function positiveAdjustmentPaiseValidator(
+  control: AbstractControl
+): ValidationErrors | null {
+  const value = control.value;
+  if (value === null || value === undefined || String(value).trim() === '') return null;
+
+  try {
+    return parseRupeesToPaise(String(value).trim()) > 0
+      ? null
+      : { positivePaise: true };
+  } catch {
+    return null;
+  }
+}
 
 export interface AdjustmentFormDialogData {
   farmerId: number;
@@ -92,6 +116,9 @@ interface CategoryOption {
               </mat-error>
               <mat-error *ngIf="form.get('amountRupees')?.hasError('pattern')">
                 {{ i18n.t('ledger.amountInvalid') }}
+              </mat-error>
+              <mat-error *ngIf="form.get('amountRupees')?.hasError('positivePaise')">
+                {{ i18n.t('ledger.amountPositive') }}
               </mat-error>
             </mat-form-field>
 
@@ -213,7 +240,14 @@ export class AdjustmentFormDialogComponent implements OnInit {
   public readonly form: FormGroup = this.fb.group({
     entryType: ['DEDUCTION', [Validators.required]],
     category: ['CATTLE_FEED', [Validators.required]],
-    amountRupees: ['', [Validators.required, Validators.pattern(/^\d+(\.\d{1,2})?$/)]],
+    amountRupees: [
+      '',
+      [
+        Validators.required,
+        Validators.pattern(/^\d+(\.\d{1,2})?$/),
+        positiveAdjustmentPaiseValidator,
+      ],
+    ],
     businessDate: [new Date().toISOString().substring(0, 10), [Validators.required]],
     reason: ['', [Validators.required, Validators.minLength(2)]],
     notes: [''],

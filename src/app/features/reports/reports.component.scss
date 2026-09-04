@@ -63,13 +63,122 @@
   }
 
   .preview-card {
-    .debug-preview {
-      background: var(--mat-sys-surface-container);
-      padding: 1rem;
-      border-radius: 4px;
+    padding-bottom: 1rem;
+
+    mat-card-header {
+      margin-bottom: 1rem;
+    }
+
+    .report-section {
+      display: grid;
+      gap: 1.25rem;
+    }
+
+    .summary-grid,
+    .metadata-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 0.75rem;
+      margin: 0;
+    }
+
+    .metric-card,
+    .metadata-grid > div {
+      border: 1px solid var(--mat-sys-outline-variant);
+      border-radius: 8px;
+      background: var(--mat-sys-surface-container-low);
+      padding: 0.8rem 1rem;
+    }
+
+    .metric-card {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+
+      span {
+        color: var(--mat-sys-on-surface-variant);
+        font-size: 0.85rem;
+      }
+
+      strong {
+        font-size: 1.15rem;
+      }
+
+      &.emphasis {
+        border-color: var(--mat-sys-primary);
+      }
+    }
+
+    .metadata-grid {
+      div {
+        min-width: 0;
+      }
+
+      dt {
+        color: var(--mat-sys-on-surface-variant);
+        font-size: 0.8rem;
+        margin-bottom: 0.25rem;
+      }
+
+      dd {
+        margin: 0;
+        overflow-wrap: anywhere;
+        font-weight: 600;
+      }
+    }
+
+    .table-scroll {
       overflow-x: auto;
-      font-family: monospace;
-      font-size: 0.9rem;
+      border: 1px solid var(--mat-sys-outline-variant);
+      border-radius: 8px;
+    }
+
+    .report-table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 620px;
+
+      caption {
+        padding: 0.8rem 1rem;
+        text-align: left;
+        font-weight: 700;
+        background: var(--mat-sys-surface-container);
+      }
+
+      th,
+      td {
+        border-top: 1px solid var(--mat-sys-outline-variant);
+        padding: 0.7rem 0.8rem;
+        text-align: left;
+        vertical-align: top;
+        white-space: nowrap;
+      }
+
+      thead th {
+        background: var(--mat-sys-surface-container-low);
+        color: var(--mat-sys-on-surface-variant);
+        font-size: 0.82rem;
+      }
+
+      tbody th {
+        font-weight: 600;
+      }
+
+      .empty-cell {
+        text-align: center;
+        color: var(--mat-sys-on-surface-variant);
+        padding: 1.25rem;
+      }
+    }
+  }
+}
+
+@media (max-width: 700px) {
+  .reports-container {
+    padding: 0.75rem;
+
+    .filter-card .filter-grid .action-buttons {
+      flex-wrap: wrap;
     }
   }
 }

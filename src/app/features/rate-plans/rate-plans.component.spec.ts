@@ -116,6 +116,8 @@ describe('RatePlansComponent (Angular Unit)', () => {
         if (key === 'milk.cow') return 'गाय दूध';
         if (key === 'milk.buffalo') return 'म्हैस दूध';
         if (key === 'rates.noApprovedWarning') return 'दरपत्रक मंजूर नाही';
+        if (key === 'rates.rangeSeparator') return i18nMock.currentLanguage() === 'mr' ? 'ते' : 'to';
+        if (key === 'rates.ongoing') return i18nMock.currentLanguage() === 'mr' ? '(पुढे चालू)' : '(Ongoing)';
         return key;
       }),
     };
@@ -201,5 +203,24 @@ describe('RatePlansComponent (Angular Unit)', () => {
     component.openCloneDialog(mockApprovedCowPlan);
 
     expect(openSpy).toHaveBeenCalled();
+  });
+
+  it('translates the effective-period separator and ongoing label', () => {
+    ratePlanStateMock.plans.set([
+      mockApprovedCowPlan,
+      { ...mockDraftCowPlan, effectiveTo: '2026-10-31' },
+    ]);
+    const fixture = TestBed.createComponent(RatePlansComponent);
+
+    i18nMock.currentLanguage.set('en');
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('2026-09-01 (Ongoing)');
+    expect(fixture.nativeElement.textContent).toContain('to 2026-10-31');
+    expect(fixture.nativeElement.textContent).not.toContain('पुढे चालू');
+
+    i18nMock.currentLanguage.set('mr');
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('2026-09-01 (पुढे चालू)');
+    expect(fixture.nativeElement.textContent).toContain('ते 2026-10-31');
   });
 });

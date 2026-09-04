@@ -190,22 +190,22 @@
       <div class="dashboard-stats-grid" style="margin-top: 2rem; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
         <mat-card>
           <mat-card-content>
-            <h4>Today's Litres</h4>
+            <h4>{{ 'dashboard.todayLitres' | translate }}</h4>
             <p class="stat-value" style="font-size: 1.5rem; font-weight: bold;">{{ summary.todayLitresFormatted }} L</p>
-            <p class="stat-sub">Collections: {{ summary.todayCollectionCount }}</p>
+            <p class="stat-sub">{{ 'dashboard.collections' | translate }}: {{ summary.todayCollectionCount }}</p>
           </mat-card-content>
         </mat-card>
         <mat-card>
           <mat-card-content>
-            <h4>Today's Amount</h4>
+            <h4>{{ 'dashboard.todayAmount' | translate }}</h4>
             <p class="stat-value" style="font-size: 1.5rem; font-weight: bold;">{{ summary.todayAmountFormatted }}</p>
           </mat-card-content>
         </mat-card>
         <mat-card>
           <mat-card-content>
-            <h4>Total Outstanding</h4>
+            <h4>{{ 'dashboard.totalOutstanding' | translate }}</h4>
             <p class="stat-value" style="color: #d32f2f; font-size: 1.5rem; font-weight: bold;">{{ summary.totalFarmerPayableFormatted }}</p>
-            <p class="stat-sub">Unpaid Farmers: {{ summary.unpaidFarmerCount }}</p>
+            <p class="stat-sub">{{ 'dashboard.unpaidFarmers' | translate }}: {{ summary.unpaidFarmerCount }}</p>
           </mat-card-content>
         </mat-card>
       </div>

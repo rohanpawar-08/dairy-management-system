@@ -17,6 +17,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatIconModule } from '@angular/material/icon';
 import { I18nService } from '../../../core/services/i18n.service';
 import { PaymentMethod, RecordPaymentPayload } from '../../../../../shared/ipc-contracts';
+import { parseRupeesToPaise } from '../../../../../shared/money';
 
 export function trimmedRequiredValidator(control: AbstractControl): ValidationErrors | null {
   const val = control.value;
@@ -24,6 +25,17 @@ export function trimmedRequiredValidator(control: AbstractControl): ValidationEr
     return { required: true };
   }
   return null;
+}
+
+export function positivePaiseValidator(control: AbstractControl): ValidationErrors | null {
+  const value = control.value;
+  if (value === null || value === undefined || String(value).trim() === '') return null;
+
+  try {
+    return parseRupeesToPaise(String(value).trim()) > 0 ? null : { positivePaise: true };
+  } catch {
+    return null;
+  }
 }
 
 export interface PaymentDialogData {
@@ -83,6 +95,9 @@ export interface PaymentDialogData {
               </mat-error>
               <mat-error *ngIf="form.get('amountRupees')?.hasError('pattern')">
                 {{ i18n.t('ledger.amountInvalid') }}
+              </mat-error>
+              <mat-error *ngIf="form.get('amountRupees')?.hasError('positivePaise')">
+                {{ i18n.t('ledger.amountPositive') }}
               </mat-error>
             </mat-form-field>
 
@@ -206,7 +221,10 @@ export class PaymentDialogComponent implements OnInit {
   private readonly fb = inject(FormBuilder);
 
   public readonly form: FormGroup = this.fb.group({
-    amountRupees: ['', [Validators.required, Validators.pattern(/^\d+(\.\d{1,2})?$/)]],
+    amountRupees: [
+      '',
+      [Validators.required, Validators.pattern(/^\d+(\.\d{1,2})?$/), positivePaiseValidator],
+    ],
     paymentMethod: ['CASH', [Validators.required]],
     businessDate: [new Date().toISOString().substring(0, 10), [Validators.required]],
     externalReference: [''],

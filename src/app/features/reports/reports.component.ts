@@ -22,6 +22,7 @@ import {
 } from '../../../../shared/ipc-contracts';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatNativeDateModule } from '@angular/material/core';
+import { formatPaiseAsRupees } from '../../../../shared/money';
 
 @Component({
   selector: 'app-reports',
@@ -51,6 +52,7 @@ export class ReportsComponent implements OnInit {
   private bridge = inject(ElectronBridgeService);
 
   public selectedType = signal<ReportType>('DAILY_COLLECTION_SUMMARY');
+  public previewType = signal<ReportType | null>(null);
   public fromDate = signal<Date>(new Date());
   public toDate = signal<Date>(new Date());
 
@@ -69,7 +71,7 @@ export class ReportsComponent implements OnInit {
   public isPreviewLoading = signal<boolean>(false);
   public entityError = signal<string | null>(null);
 
-  public reportTypes = [
+  public reportTypes: Array<{ value: ReportType; labelKey: string }> = [
     { value: 'DAILY_COLLECTION_SUMMARY', labelKey: 'reports.dailySummary' },
     { value: 'SHIFT_COLLECTION_REPORT', labelKey: 'reports.shiftReport' },
     { value: 'FARMER_LEDGER_STATEMENT', labelKey: 'reports.ledgerStatement' },
@@ -112,8 +114,8 @@ export class ReportsComponent implements OnInit {
           }
         }
       }
-    } catch (err: unknown) {
-      this.entityError.set(err instanceof Error ? err.message : 'Failed to load report entities');
+    } catch {
+      this.entityError.set(this.i18n.t('reports.loadEntitiesFailed'));
     } finally {
       this.isLoadingEntities.set(false);
     }
@@ -172,6 +174,59 @@ export class ReportsComponent implements OnInit {
     return this.getValidatedRequest() !== null;
   });
 
+  public onReportTypeChange(type: ReportType): void {
+    this.selectedType.set(type);
+    this.previewType.set(null);
+    this.state.previewData.set(null);
+  }
+
+  public reportTitle(type: ReportType | null): string {
+    const option = this.reportTypes.find((item) => item.value === type);
+    return option ? this.i18n.t(option.labelKey) : this.i18n.t('reports.preview');
+  }
+
+  public translateShiftType(value: string | null | undefined): string {
+    if (value === 'MORNING') return this.i18n.t('collection.shiftTypeMorning');
+    if (value === 'EVENING') return this.i18n.t('collection.shiftTypeEvening');
+    return value || '—';
+  }
+
+  public translateMilkType(value: string | null | undefined): string {
+    if (value === 'COW') return this.i18n.t('milk.cow');
+    if (value === 'BUFFALO') return this.i18n.t('milk.buffalo');
+    return value || '—';
+  }
+
+  public translateStatus(value: string | null | undefined): string {
+    return this.translateEnum('reports.status', value);
+  }
+
+  public translatePaymentMethod(value: string | null | undefined): string {
+    return this.translateEnum('reports.paymentMethod', value);
+  }
+
+  public translateLedgerSource(value: string | null | undefined): string {
+    return this.translateEnum('reports.sourceType', value);
+  }
+
+  public formatPaise(value: number | null | undefined): string {
+    return typeof value === 'number' && Number.isSafeInteger(value)
+      ? `₹${formatPaiseAsRupees(value)}`
+      : '—';
+  }
+
+  public farmerName(nameMr: string | null | undefined, nameEn: string | null | undefined): string {
+    if (nameMr && nameEn) return `${nameMr} (${nameEn})`;
+    return nameMr || nameEn || '—';
+  }
+
+  private translateEnum(prefix: string, value: string | null | undefined): string {
+    if (!value) return '—';
+    const key = `${prefix}.${value}`;
+    const translated = this.i18n.t(key);
+    return translated === key ? value : translated;
+  }
+
   public validationError = computed<string | null>(() => {
     const type = this.selectedType();
     const from = this.formatDate(this.fromDate());
@@ -202,9 +257,13 @@ export class ReportsComponent implements OnInit {
   async preview(): Promise<void> {
     const req = this.getValidatedRequest();
     if (!req) return;
+    this.previewType.set(null);
     this.isPreviewLoading.set(true);
     try {
       await this.state.previewReport(req);
+      if (this.state.previewData()) {
+        this.previewType.set(req.reportType);
+      }
     } finally {
       this.isPreviewLoading.set(false);
     }

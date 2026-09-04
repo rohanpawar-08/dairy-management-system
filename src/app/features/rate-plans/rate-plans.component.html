@@ -57,7 +57,7 @@
           </div>
           <div class="period-info">
             <mat-icon>calendar_today</mat-icon>
-            <span>{{ cow.effectiveFrom }} {{ cow.effectiveTo ? ('ते ' + cow.effectiveTo) : ('(पुढे चालू)') }}</span>
+            <span>{{ cow.effectiveFrom }} {{ cow.effectiveTo ? (('rates.rangeSeparator' | translate) + ' ' + cow.effectiveTo) : ('rates.ongoing' | translate) }}</span>
           </div>
         </div>
         <ng-template #noCow>
@@ -92,7 +92,7 @@
           </div>
           <div class="period-info">
             <mat-icon>calendar_today</mat-icon>
-            <span>{{ buf.effectiveFrom }} {{ buf.effectiveTo ? ('ते ' + buf.effectiveTo) : ('(पुढे चालू)') }}</span>
+            <span>{{ buf.effectiveFrom }} {{ buf.effectiveTo ? (('rates.rangeSeparator' | translate) + ' ' + buf.effectiveTo) : ('rates.ongoing' | translate) }}</span>
           </div>
         </div>
         <ng-template #noBuf>
@@ -237,7 +237,7 @@
         <th mat-header-cell *matHeaderCellDef>{{ 'rates.effectivePeriod' | translate }}</th>
         <td mat-cell *matCellDef="let p">
           <div>{{ p.effectiveFrom }}</div>
-          <div class="row-subtext">{{ p.effectiveTo ? ('ते ' + p.effectiveTo) : ('(पुढे चालू)') }}</div>
+          <div class="row-subtext">{{ p.effectiveTo ? (('rates.rangeSeparator' | translate) + ' ' + p.effectiveTo) : ('rates.ongoing' | translate) }}</div>
         </td>
       </ng-container>
 

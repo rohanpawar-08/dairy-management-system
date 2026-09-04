@@ -33,7 +33,11 @@ export class ReportStateService {
     if (res.success) {
       this.previewData.set(res.data);
     } else {
-      this.showError(res.error?.messageEn || 'Preview failed');
+      const message =
+        this.i18n.currentLanguage() === 'mr'
+          ? res.error?.messageMr || res.error?.messageEn
+          : res.error?.messageEn || res.error?.messageMr;
+      this.showError(message || this.i18n.t('reports.previewFailed'));
     }
   }
 
@@ -47,12 +51,16 @@ export class ReportStateService {
       const res = await this.bridge.reports.exportPdf(payload);
       if (res.success) {
         if (!res.data.cancelled) {
-          this.snackBar.open(this.i18n.t('reports.generated'), 'OK', { duration: 3000 });
+          this.snackBar.open(this.i18n.t('reports.generated'), this.i18n.t('common.ok'), { duration: 3000 });
         } else {
-          this.snackBar.open(this.i18n.t('reports.cancelled'), 'OK', { duration: 2000 });
+          this.snackBar.open(this.i18n.t('reports.cancelled'), this.i18n.t('common.ok'), { duration: 2000 });
         }
       } else {
-        this.showError(res.error?.messageEn || 'Export failed');
+        const message =
+          this.i18n.currentLanguage() === 'mr'
+            ? res.error?.messageMr || res.error?.messageEn
+            : res.error?.messageEn || res.error?.messageMr;
+        this.showError(message || this.i18n.t('reports.exportFailed'));
       }
     } finally {
       this.isGeneratingPdf.set(false);
@@ -60,6 +68,6 @@ export class ReportStateService {
   }
 
   private showError(msg: string) {
-    this.snackBar.open(msg, 'OK', { duration: 5000, panelClass: 'error-snackbar' });
+    this.snackBar.open(msg, this.i18n.t('common.ok'), { duration: 5000, panelClass: 'error-snackbar' });
   }
 }

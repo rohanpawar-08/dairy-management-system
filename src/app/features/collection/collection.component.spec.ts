@@ -4,7 +4,7 @@ import { MatDialog } from '@angular/material/dialog';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
 import { signal } from '@angular/core';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { of } from 'rxjs';
+import { of, Subject } from 'rxjs';
 
 import { CollectionComponent } from './collection.component';
 import { CollectionStateService } from '../../core/services/collection-state.service';
@@ -389,6 +389,7 @@ describe('CollectionComponent (Angular Unit)', () => {
       fatPercent: '4.0',
       snfPercent: '8.5',
     });
+    expect(comp.isSubmitting()).toBe(false);
   });
 
   it('11. Zero or negative quantity/FAT/SNF does not trigger preview calculation', () => {
@@ -480,9 +481,84 @@ describe('CollectionComponent (Angular Unit)', () => {
 
     await new Promise((resolve) => setTimeout(resolve, 10));
     expect(collectionStateMock.recordCollection).not.toHaveBeenCalled();
+    expect(comp.isSubmitting()).toBe(false);
   });
 
-  it('14. Void button opens void confirmation dialog', () => {
+  it('14. Locks immediately across duplicate validation, dialog, and save to prevent rapid double-submit', async () => {
+    const dialogResult = new Subject<{ confirmed: boolean; duplicateReason: string }>();
+    collectionStateMock.checkDuplicate.mockResolvedValueOnce({
+      isDuplicate: true,
+      existingCollections: [{ id: 101 }],
+    });
+    dialogMock.open.mockReturnValueOnce({
+      afterClosed: () => dialogResult.asObservable(),
+    });
+
+    let resolveSave!: (value: MilkCollectionDto) => void;
+    collectionStateMock.recordCollection.mockReturnValueOnce(
+      new Promise<MilkCollectionDto>((resolve) => {
+        resolveSave = resolve;
+      })
+    );
+
+    const fixture = TestBed.createComponent(CollectionComponent);
+    const comp = fixture.componentInstance;
+    fixture.detectChanges();
+    comp.collectionForm.patchValue({
+      memberCode: '001',
+      milkType: 'COW',
+      quantityLitres: '20.0',
+      fatPercent: '4.0',
+      snfPercent: '8.5',
+    });
+    comp.resolvedFarmer.set(mockFarmer);
+    comp.ratePreview.set({} as any);
+
+    const firstSubmit = comp.onSaveCollection();
+    await comp.onSaveCollection();
+    expect(comp.isSubmitting()).toBe(true);
+    expect(collectionStateMock.checkDuplicate).toHaveBeenCalledTimes(1);
+
+    await vi.waitFor(() => expect(dialogMock.open).toHaveBeenCalledTimes(1));
+    await comp.onSaveCollection();
+    expect(collectionStateMock.checkDuplicate).toHaveBeenCalledTimes(1);
+
+    dialogResult.next({ confirmed: true, duplicateReason: 'SECOND_CAN' });
+    dialogResult.complete();
+    await vi.waitFor(() => expect(collectionStateMock.recordCollection).toHaveBeenCalledTimes(1));
+    await comp.onSaveCollection();
+    expect(collectionStateMock.recordCollection).toHaveBeenCalledTimes(1);
+
+    resolveSave(mockCollection);
+    await firstSubmit;
+    expect(comp.isSubmitting()).toBe(false);
+  });
+
+  it('15. Releases the submitting lock after validation and duplicate-check error paths', async () => {
+    const fixture = TestBed.createComponent(CollectionComponent);
+    const comp = fixture.componentInstance;
+    fixture.detectChanges();
+
+    await comp.onSaveCollection();
+    expect(comp.isSubmitting()).toBe(false);
+
+    comp.collectionForm.patchValue({
+      memberCode: '001',
+      milkType: 'COW',
+      quantityLitres: '20.0',
+      fatPercent: '4.0',
+      snfPercent: '8.5',
+    });
+    comp.resolvedFarmer.set(mockFarmer);
+    comp.ratePreview.set({} as any);
+    collectionStateMock.checkDuplicate.mockRejectedValueOnce(new Error('duplicate check failed'));
+
+    await comp.onSaveCollection();
+    expect(comp.isSubmitting()).toBe(false);
+    expect(collectionStateMock.recordCollection).not.toHaveBeenCalled();
+  });
+
+  it('16. Void button opens void confirmation dialog', () => {
     dialogMock.open.mockReturnValueOnce({
       afterClosed: () => of('Mistake entry'),
     });
@@ -495,7 +571,7 @@ describe('CollectionComponent (Angular Unit)', () => {
     expect(dialogMock.open).toHaveBeenCalled();
   });
 
-  it('15. Close shift button opens close confirmation dialog', () => {
+  it('17. Close shift button opens close confirmation dialog', () => {
     dialogMock.open.mockReturnValueOnce({
       afterClosed: () => of(true),
     });
@@ -508,7 +584,7 @@ describe('CollectionComponent (Angular Unit)', () => {
     expect(dialogMock.open).toHaveBeenCalled();
   });
 
-  it('16. Owner sees Reopen button on locked shift and reopenShift dialog opens', () => {
+  it('18. Owner sees Reopen button on locked shift and reopenShift dialog opens', () => {
     collectionStateMock.currentShift.set({ ...mockShift, status: 'LOCKED' });
     authStateMock.isOwner.mockReturnValue(true);
     dialogMock.open.mockReturnValueOnce({
@@ -523,7 +599,7 @@ describe('CollectionComponent (Angular Unit)', () => {
     expect(dialogMock.open).toHaveBeenCalled();
   });
 
-  it('17. No active shift renders Open Shift panel (.no-shift-container)', () => {
+  it('19. No active shift renders Open Shift panel (.no-shift-container)', () => {
     // Set currentShift to null to trigger no-shift UI state
     collectionStateMock.currentShift.set(null);
     collectionStateMock.isLoading.set(false);
@@ -537,7 +613,7 @@ describe('CollectionComponent (Angular Unit)', () => {
     expect(noShiftEl).not.toBeNull();
   });
 
-  it('18. Submitting Open Shift form calls openShift with correct payload', async () => {
+  it('20. Submitting Open Shift form calls openShift with correct payload', async () => {
     collectionStateMock.currentShift.set(null);
 
     const fixture = TestBed.createComponent(CollectionComponent);
