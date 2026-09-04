@@ -97,6 +97,65 @@ describe('LoginComponent (Angular Unit)', () => {
     expect(component.errorMessage()).toContain('Invalid username or credentials.');
   });
 
+  it('after failed login, clears password without prematurely showing required validation and preserves untouched pristine state', async () => {
+    const fixture = TestBed.createComponent(LoginComponent);
+    const component = fixture.componentInstance;
+    fixture.detectChanges();
+
+    (mockAuthState.login as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+      new Error('Invalid username or credentials.')
+    );
+
+    component.passwordForm.patchValue({
+      username: 'owner',
+      password: 'wrong_password',
+    });
+    component.passwordForm.get('password')?.markAsTouched();
+    component.passwordForm.get('password')?.markAsDirty();
+
+    await component.submitLogin();
+    fixture.detectChanges();
+
+    expect(component.passwordForm.value.password).toBe('');
+    expect(component.passwordForm.get('password')?.touched).toBe(false);
+    expect(component.passwordForm.get('password')?.pristine).toBe(true);
+    expect(component.errorMessage()).toContain('Invalid username or credentials.');
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const errors = compiled.querySelectorAll('mat-error');
+    expect(errors.length).toBe(0);
+  });
+
+  it('after failed PIN login, clears pin without prematurely showing required validation and preserves untouched pristine state', async () => {
+    const fixture = TestBed.createComponent(LoginComponent);
+    const component = fixture.componentInstance;
+    component.setMode('pin');
+    fixture.detectChanges();
+
+    (mockAuthState.login as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+      new Error('Invalid PIN.')
+    );
+
+    component.pinForm.patchValue({
+      username: 'owner',
+      pin: '9999',
+    });
+    component.pinForm.get('pin')?.markAsTouched();
+    component.pinForm.get('pin')?.markAsDirty();
+
+    await component.submitLogin();
+    fixture.detectChanges();
+
+    expect(component.pinForm.value.pin).toBe('');
+    expect(component.pinForm.get('pin')?.touched).toBe(false);
+    expect(component.pinForm.get('pin')?.pristine).toBe(true);
+    expect(component.errorMessage()).toContain('Invalid PIN.');
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const errors = compiled.querySelectorAll('mat-error');
+    expect(errors.length).toBe(0);
+  });
+
   it('redirects to /inconsistent on init if database state is INCONSISTENT', async () => {
     (mockAuthState.checkSetupStatus as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
       state: 'INCONSISTENT',

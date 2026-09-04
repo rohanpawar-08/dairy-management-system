@@ -9,14 +9,22 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatTabsModule } from '@angular/material/tabs';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { ErrorStateMatcher } from '@angular/material/core';
 import { TranslatePipe } from '../../core/pipes/translate.pipe';
 import { I18nService } from '../../core/services/i18n.service';
 import { AuthStateService } from '../../core/services/auth-state.service';
 import type { LoginPayload } from '../../../../shared/ipc-contracts';
 
+export class TouchedErrorStateMatcher implements ErrorStateMatcher {
+  isErrorState(control: any): boolean {
+    return !!(control && control.invalid && control.touched);
+  }
+}
+
 @Component({
   selector: 'app-login',
   standalone: true,
+  providers: [{ provide: ErrorStateMatcher, useClass: TouchedErrorStateMatcher }],
   imports: [
     CommonModule,
     ReactiveFormsModule,
@@ -88,8 +96,11 @@ export class LoginComponent implements OnInit {
       pin: !isPassword ? form.value.pin.trim() : undefined,
     };
 
-    // Clean sensitive input fields immediately
-    form.get(isPassword ? 'password' : 'pin')?.setValue('');
+    // Clean sensitive input fields immediately and maintain pristine/untouched state
+    const sensitiveControl = form.get(isPassword ? 'password' : 'pin');
+    sensitiveControl?.setValue('');
+    sensitiveControl?.markAsUntouched();
+    sensitiveControl?.markAsPristine();
 
     try {
       await this.authState.login(payload);
@@ -97,6 +108,9 @@ export class LoginComponent implements OnInit {
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       this.errorMessage.set(msg);
+      sensitiveControl?.setValue('');
+      sensitiveControl?.markAsUntouched();
+      sensitiveControl?.markAsPristine();
     } finally {
       this.isSubmitting.set(false);
     }

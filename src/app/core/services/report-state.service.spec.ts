@@ -21,7 +21,10 @@ describe('ReportStateService', () => {
       }
     };
     mockSnackBar = { open: vi.fn() };
-    mockI18n = { currentLang: 'en', t: vi.fn().mockImplementation((key: any) => key) };
+    mockI18n = {
+      currentLanguage: vi.fn().mockReturnValue('en'),
+      t: vi.fn().mockImplementation((key: any) => key),
+    };
 
     TestBed.configureTestingModule({
       providers: [
@@ -52,5 +55,21 @@ describe('ReportStateService', () => {
     await service.exportPdf({ reportType: 'DAILY_COLLECTION_SUMMARY', suggestedFilename: 'test' } as any);
     expect(mockBridge.reports.exportPdf).toHaveBeenCalled();
     expect(mockSnackBar.open).toHaveBeenCalled();
+  });
+
+  it('shows the backend error in the active report language', async () => {
+    mockI18n.currentLanguage.mockReturnValue('mr');
+    mockBridge.reports.preview.mockResolvedValueOnce({
+      success: false,
+      error: { messageEn: 'Preview failed', messageMr: 'पूर्वावलोकन अयशस्वी' },
+    });
+
+    await service.previewReport({ reportType: 'OUTSTANDING_FARMER_REPORT' });
+
+    expect(mockSnackBar.open).toHaveBeenCalledWith(
+      'पूर्वावलोकन अयशस्वी',
+      'common.ok',
+      expect.objectContaining({ panelClass: 'error-snackbar' })
+    );
   });
 });
